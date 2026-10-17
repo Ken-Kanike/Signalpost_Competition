@@ -319,9 +319,10 @@ In accordance with the official challenge requirements:
 2. **Repository link**:  
    `https://github.com/Ken-Kanike/Signalpost_Competition`
 3. **Live Deployed Dashboard (GitHub Pages)**:  
-   `https://ken-kanike.github.io/Signalpost_Competition/`
-4. **Exact commit hash**:  
-   `1659621327f272a59a9307c082725d207c77eb0d`
+   [https://ken-kanike.github.io/Signalpost_Competition/](https://ken-kanike.github.io/Signalpost_Competition/)
+4. **Exact commit hash & URL**:  
+   - Commit Hash: `cc44ce4a87e4dabbe812fdfd781e7b5b1258749c`
+   - Commit URL: [https://github.com/Ken-Kanike/Signalpost_Competition/commit/cc44ce4a87e4dabbe812fdfd781e7b5b1258749c](https://github.com/Ken-Kanike/Signalpost_Competition/commit/cc44ce4a87e4dabbe812fdfd781e7b5b1258749c)
 5. **One command to run it**:  
    ```bash
    ./run.sh profiles/targets_1000.jsonl output
@@ -329,10 +330,14 @@ In accordance with the official challenge requirements:
 6. **Model / API Details**:  
    - **Primary Registry APIs**: Brønnøysundregistrene Open APIs (`data.brreg.no` and `w2.brreg.no`) — completely free, open public registers.
    - **Synthesis Engine**: Deterministic Template Synthesizer (default, 100% grounded, $0 cost).
-   - **Optional LLM Mode**: OpenAI `gpt-4o-mini` with strict JSON/grounding schema.
+   - **Optional Multi-Provider AI Mode**: Configurable via Web Settings or CLI: OpenAI (`gpt-4o-mini`), Groq (`llama-3.3-70b-versatile`), Anthropic (`claude-3-5-sonnet`), OpenRouter, and Ollama.
 7. **Expected Run Costs**:  
    - **Default Execution Cost**: **$0.00 USD** (0 tokens, pure algorithmic synthesis with complete claim audit trail).
    - **Optional LLM Mode**: **~$0.02 USD** per 100 companies (well within the $10.00 daily limit).
 
 ---
-*Built with ❤️ for the Signalpost Builderr Competition.*
+**Author / Creator**: **Junaid Shaikh**  
+- Email: [junaidshaikh.coding@gmail.com](mailto:junaidshaikh.coding@gmail.com)  
+- GitHub: [@Ken-Kanike](https://github.com/Ken-Kanike)  
+- License: [MIT License](LICENSE)  
+
