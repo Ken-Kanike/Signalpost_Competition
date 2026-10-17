@@ -321,7 +321,7 @@ In accordance with the official challenge requirements:
 3. **Live Deployed Dashboard (GitHub Pages)**:  
    `https://ken-kanike.github.io/Signalpost_Competition/`
 4. **Exact commit hash**:  
-   Provided in the submission email and git log.
+   `3d2a99a79cf3dba5fb84a06f7f6293fb786eb6a0`
 5. **One command to run it**:  
    ```bash
    ./run.sh profiles/targets_1000.jsonl output
