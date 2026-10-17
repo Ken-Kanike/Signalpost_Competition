@@ -1,5 +1,6 @@
 # 🏆 Signalpost: Autonomous Norwegian Corporate Intelligence Agent (v2.0)
 
+[![Live Dashboard](https://img.shields.io/badge/Live%20Dashboard-GitHub%20Pages-00f2fe.svg)](https://ken-kanike.github.io/Signalpost_Competition/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://img.shields.io/badge/Tests-8%2F8%20Passing-brightgreen.svg)]()
@@ -7,6 +8,7 @@
 [![Evidence Compliance](https://img.shields.io/badge/Citation%20Validator-100%25%20Pass-success.svg)]()
 
 > **Submission for Builderr Signalpost Hackathon**  
+> **🌐 Live Interactive Terminal:** [https://ken-kanike.github.io/Signalpost_Competition/](https://ken-kanike.github.io/Signalpost_Competition/)  
 > An autonomous, high-concurrency research agent that takes a 9-digit Norwegian organization number, searches permitted public registries and verified web sources, assigns auditable claim IDs, computes derived financial signals, and compiles complete, verifiable company envelopes with zero hallucinations.
 
 ---
@@ -313,20 +315,22 @@ Signalpost_hackathon/
 In accordance with the official challenge requirements:
 
 1. **At least 1,000 company profiles**:  
-   Target batch of 1,000 active Norwegian companies pre-compiled in `profiles/targets_1000.jsonl`.
+   Target batch of 1,000 active Norwegian companies pre-compiled in `profiles/targets_1000.jsonl` and full verified envelopes in `profiles/profiles_1000.jsonl`.
 2. **Repository link**:  
    `https://github.com/Ken-Kanike/Signalpost_Competition`
-3. **Exact commit hash**:  
+3. **Live Deployed Dashboard (GitHub Pages)**:  
+   `https://ken-kanike.github.io/Signalpost_Competition/`
+4. **Exact commit hash**:  
    Provided in the submission email and git log.
-4. **One command to run it**:  
+5. **One command to run it**:  
    ```bash
    ./run.sh profiles/targets_1000.jsonl output
    ```
-5. **Model / API Details**:  
+6. **Model / API Details**:  
    - **Primary Registry APIs**: Brønnøysundregistrene Open APIs (`data.brreg.no` and `w2.brreg.no`) — completely free, open public registers.
    - **Synthesis Engine**: Deterministic Template Synthesizer (default, 100% grounded, $0 cost).
    - **Optional LLM Mode**: OpenAI `gpt-4o-mini` with strict JSON/grounding schema.
-6. **Expected Run Costs**:  
+7. **Expected Run Costs**:  
    - **Default Execution Cost**: **$0.00 USD** (0 tokens, pure algorithmic synthesis with complete claim audit trail).
    - **Optional LLM Mode**: **~$0.02 USD** per 100 companies (well within the $10.00 daily limit).
 
