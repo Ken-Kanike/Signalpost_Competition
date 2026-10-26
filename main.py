@@ -329,4 +329,12 @@ def serve_command(host: str, port: int, open_browser: bool):
 
 
 if __name__ == "__main__":
-    cli()
+    # If launched in cloud environments (Railway, Render, Fly.io) without subcommands,
+    # automatically launch the FastAPI live terminal server.
+    if len(sys.argv) == 1 and (os.getenv("PORT") or os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("DYNO")):
+        import uvicorn
+        port = int(os.getenv("PORT", "8000"))
+        logger.info(f"Auto-starting Signalpost API server on port {port} for cloud deployment...")
+        uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+    else:
+        cli()
