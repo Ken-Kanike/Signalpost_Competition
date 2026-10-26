@@ -135,10 +135,14 @@ class JobsCollector:
         "les mer", "se mer", "apply now", "søk her", "sok her", "careers", "karriere", "work with us",
         "jobb hos oss", "bli en av oss", "view all", "open positions", "find a job", "working at",
         "our culture", "job openings", "se alle ledige stillinger", "se alle stillinger",
+        "stillinger", "jobbhelsa", "innhold", "til jobbhelsa innhold",
     }
     BLOCKED_HOSTS = {
         "nav.no", "finn.no", "jobbnorge.no", "seek.com", "indeed.com",
         "arbeidsplassen.nav.no", "webcruiter.no",
+        # Norwegian trade/industry job portals
+        "bygg.no", "stillinger.bygg.no", "teknisk.no", "ingeniørjobb.no",
+        "ledernytt.no", "nettavisen.no", "dn.no",
     }
 
     def _parse_careers_html(
@@ -165,24 +169,32 @@ class JobsCollector:
             # Rule 4: No generic navigation labels or application prompts
             if (
                 clean_lower in self.GENERIC_LABELS
-                or any(g in clean_lower for g in ["åpen søknad", "apen soknad", "se alle", "see all", "apply now", "jobb hos oss"])
+                or any(g in clean_lower for g in ["åpen søknad", "apen soknad", "se alle", "see all", "apply now", "jobb hos oss", "innhold", "jobbhelsa"])
             ):
                 continue
 
             full_link = urljoin(base_url, href)
             parsed_link = urlparse(full_link)
 
+            # Block pure fragment/anchor-only links (e.g. #9B801C33...)
+            if not parsed_link.scheme and not parsed_link.netloc and not parsed_link.path:
+                continue
+            # Block links that are only a fragment on the same base URL
+            if parsed_link.fragment and not parsed_link.path.strip("/"):
+                continue
+
             # Rule 1: Link must differ from careers index page
             if full_link.rstrip("/").lower() == base_clean:
                 continue
 
             # Rule 2: No external job portals
-            if any(b in parsed_link.netloc.lower() for b in self.BLOCKED_HOSTS):
+            link_host = parsed_link.netloc.lower()
+            if any(b in link_host for b in self.BLOCKED_HOSTS):
                 continue
 
             # Rule 3: Same domain only (no external or parent redirects)
             link_domain = parsed_link.netloc.lower().replace("www.", "")
-            if link_domain != base_domain:
+            if link_domain and link_domain != base_domain:
                 continue
 
             # Vacancy indicators in link or title

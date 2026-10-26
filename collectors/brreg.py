@@ -184,16 +184,30 @@ class BrregCollector:
         
         # Parallel tasks if cap permits
         roller_task = asyncio.create_task(self.fetch_roller(session, clean))
-        regnskap_task = asyncio.create_task(self.fetch_regnskap(session, clean))
+        regnskap_task = (
+            asyncio.create_task(self.fetch_regnskap(session, clean))
+            if fetch_budget_cap >= 5
+            else None
+        )
         underenheter_task = (
             asyncio.create_task(self.fetch_underenheter(session, clean))
-            if fetch_budget_cap >= 4
+            if fetch_budget_cap >= 6
             else None
         )
 
         enhet_res = await enhet_task
         roller_res = await roller_task
-        regnskap_res = await regnskap_task
+        regnskap_res = (
+            await regnskap_task
+            if regnskap_task
+            else {
+                "url": self.config.brreg_regnskap_url.format(orgnr=clean),
+                "status_code": 0,
+                "data": None,
+                "error": "Skipped due to request budget cap",
+                "available": False,
+            }
+        )
         underenheter_res = (
             await underenheter_task
             if underenheter_task

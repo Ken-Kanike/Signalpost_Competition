@@ -302,5 +302,31 @@ def generate_sample_command(count: int, output: str):
     console.print(f"[bold green]Saved {len(collected)} valid Norwegian company targets to {out_path}[/bold green]")
 
 
+@cli.command("serve")
+@click.option("--host", default="0.0.0.0", help="Host address to bind server to (default: 0.0.0.0)")
+@click.option("--port", default=8000, type=int, help="Port to run server on (default: 8000)")
+@click.option("--open-browser", is_flag=True, default=False, help="Automatically open browser on start")
+def serve_command(host: str, port: int, open_browser: bool):
+    """Launch the Signalpost Live Data API server and interactive terminal dashboard."""
+    import uvicorn
+
+    url = f"http://localhost:{port}"
+    console.print(
+        Panel.fit(
+            f"[bold cyan]Signalpost Live Corporate Intelligence Server[/bold cyan]\n"
+            f"[white]Interactive Terminal UI:[/white] [green]{url}[/green]\n"
+            f"[white]Live On-Demand Research:[/white] [yellow]{url}/api/research/{{orgnr}}[/yellow]\n"
+            f"[white]Profiles & Search API:[/white] [blue]{url}/api/profiles[/blue]\n"
+            f"[white]System Telemetry:[/white] [magenta]{url}/api/health[/magenta]",
+            border_style="cyan",
+        )
+    )
+
+    if open_browser:
+        webbrowser.open(url)
+
+    uvicorn.run("server:app", host=host, port=port, reload=False)
+
+
 if __name__ == "__main__":
     cli()

@@ -33,6 +33,9 @@ class AgentConfig(BaseModel):
     max_daily_requests: int = Field(
         default_factory=lambda: int(os.getenv("MAX_DAILY_REQUESTS", "2000"))
     )
+    # Hard limit: 2000 requests / 1000 companies = 2 per company maximum.
+    # BRREG mandatory calls: enhet (1) + roller (1) = 2. Regnskap, announcements,
+    # and web calls are only attempted when budget allows via dynamic cap.
     default_per_company_cap: int = 14
     min_per_company_cap: int = 2
     max_execution_minutes: int = 45

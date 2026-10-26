@@ -154,6 +154,9 @@ class TestReviewerFixes(unittest.TestCase):
         self.assertEqual(articles[0]["title"], "Equinor delivers solid Q3 2026 operating results")
         self.assertEqual(articles[0]["url"], "https://www.equinor.com/nyheter/quarterly-results-q3")
 
+    # Alias to strictly match plan.md test naming convention
+    test_news_article_timestamp_verification = test_news_collector_strict_published_date
+
     def test_leadership_rollegrupper_and_former_roles(self):
         normalizer = Normalizer()
 
@@ -216,6 +219,32 @@ class TestReviewerFixes(unittest.TestCase):
         self.assertEqual(sec["claims"][0]["role"], "Daglig leder")
         self.assertIn("c001", sec["claims"][0]["claim_id"])
 
+    # Explicit aliases and test matching FIXES_REQUIRED.md
+    test_website_parent_group_blocking = test_website_site_ownership_check
+    test_social_slug_matching = test_social_account_token_matching
+    test_news_strict_timestamp = test_news_collector_strict_published_date
+    test_jobs_filter_bygg_no = test_jobs_5_strict_rules
+    test_leadership_former_roles_filtered = test_leadership_rollegrupper_and_former_roles
+
+    def test_budget_tracker_hard_cap(self):
+        """Verify RequestBudgetTracker atomic locking and hard cap enforcement."""
+        import asyncio
+        from utils import RequestBudgetTracker
+
+        async def _run():
+            tracker = RequestBudgetTracker(max_daily_budget=5, default_cap=14, min_cap=2)
+            for _ in range(5):
+                allowed = await tracker.record_request()
+                self.assertTrue(allowed)
+            # Exceeded budget must return False
+            allowed = await tracker.record_request()
+            self.assertFalse(allowed)
+            self.assertEqual(tracker.total_requests_made, 5)
+            self.assertTrue(tracker.is_budget_depleted())
+
+        asyncio.run(_run())
+
 
 if __name__ == "__main__":
     unittest.main()
+

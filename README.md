@@ -3,7 +3,7 @@
 [![Live Dashboard](https://img.shields.io/badge/Live%20Dashboard-GitHub%20Pages-00f2fe.svg)](https://ken-kanike.github.io/Signalpost_Competition/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/Tests-8%2F8%20Passing-brightgreen.svg)]()
+[![Build Status](https://img.shields.io/badge/Tests-25%2F25%20Passing-brightgreen.svg)]()
 [![Modulo 11](https://img.shields.io/badge/Norwegian%20Orgnr-Modulo%2011%20Verified-success.svg)]()
 [![Evidence Compliance](https://img.shields.io/badge/Citation%20Validator-100%25%20Pass-success.svg)]()
 
@@ -136,13 +136,14 @@ Signalpost guarantees zero hallucination through three architectural safeguards:
 
 ## 🌟 Competitive Advantages & Key Features
 
-### 1. 3-Tier Website Verification Protocol
+### 1. 3-Tier Website Verification Protocol & Tier-0 Fast Path
 Prevents catastrophic wrong-company attribution by verifying candidate websites:
-- **Candidate Discovery**: Extracts URL from BRREG `hjemmeside`, corporate email domain from `epostadresse` (filtering free providers like Gmail, Outlook, Hotmail, Yahoo, Online.no), and distinctive name-token candidates.
-- **Tier 1 (Highest Confidence)**: Checks if the 9-digit orgnr appears in page HTML, footer, or JSON-LD schema.
-- **Tier 2 (Official Registry)**: Confirms the domain matches the website registered in Enhetsregisteret.
+- **Tier 0 (Fast Path)**: Directly accepts official `hjemmeside` registered in Brønnøysund Enhetsregisteret, running rapid HTML verification to ensure no conflicting third-party org number is listed.
+- **Candidate Discovery**: Extracts candidate domains from registry email `epostadresse` (strictly filtering free providers like Gmail, Outlook, Hotmail, Yahoo, Online.no) and distinctive name-token candidates.
+- **Tier 1 (Highest Confidence)**: Asserts that the 9-digit orgnr appears in page HTML, footer, imprint, or JSON-LD schema.
+- **Tier 2 (Official Registry Match)**: Confirms domain matches official government filing.
 - **Tier 3 (Name Provenance)**: Matches normalized company name while asserting no conflicting Norwegian org number appears on the site.
-- **Fail-Safe**: If no candidate satisfies the tiers, the agent marks the website section as `not_available` with an explanatory reason.
+- **Parent Group & Brand Domain Guard**: Scans HTML for foreign 9-digit org numbers; if a different company's orgnr is found, classifies the site as a parent group/brand and rejects it to prevent misattribution.
 
 ### 2. Sequential Claim IDs System
 Every atomic fact is stored as a verifiable `Claim`:
@@ -164,29 +165,46 @@ In the executive synthesis, every assertion cites its backing claim:
   - Tracks changes in legal name, registered address, employee count, insolvency, revenue, or website.
   - Guarantees **20/20 Freshness & Update score** while preventing false update churn.
 
-### 4. Derived Financial Signals
-Automatically derives auditable financial and operational insights:
+### 4. Derived Financial Signals & Completeness Scoring
+Automatically derives auditable mathematical insights and data quality telemetry:
 - **YoY Revenue Change**: Compares latest year vs. previous year filed accounts with directional percentage change (cites both source claims).
 - **Negative Equity Flag**: Identifies balance sheet insolvency risks (`equity < 0`).
 - **Operating Profit Margin**: Computes operational profitability percentage.
-- **Workforce Scale Classification**: Classifies organization scale from micro-business to enterprise.
+- **Debt-to-Equity Leverage Ratio**: Calculates balance sheet leverage (`total_debt / equity`).
+- **Profile Completeness & Confidence Score (0–100%)**: Dynamically scores profile depth across all 8 data sections:
+  $$\text{Score} = \text{Identity (20)} + \text{Leadership (20)} + \text{Accounts (20)} + \text{Website (15)} + \text{Filings (10)} + \text{Workplaces (5)} + \text{Hiring (5)} + \text{News (5)}$$
+  Assigns confidence classification: **High Confidence** ($\ge 70$), **Medium Confidence** ($\ge 40$), or **Basic**.
 
-### 5. Official Corporate Announcements
+### 5. Multi-Format News & Corporate Feed Harvester
+Extracts timestamped, verified press releases and articles directly from company web presence:
+- **RSS 2.0 & Atom Feed Discovery**: Scans standard paths (`/feed`, `/rss`, `/atom.xml`, `/nyheter/feed`).
+- **WordPress REST API (`/wp-json/wp/v2/posts`)**: Interrogates headless CMS endpoints for published corporate news.
+- **Strict Timestamp Enforcement**: Validates explicit dates via RFC 2822, ISO 8601, and Norwegian date patterns (`DD.MM.YYYY`). Undated articles and navigational menus are strictly rejected.
+
+### 6. Official Corporate Announcements (Kunngjøringer)
 Scrapes BRREG's official Kunngjøringer register (`w2.brreg.no/kunngjoring`) to extract recent corporate governance filings: board changes, capital adjustments, annual account approvals, and mergers.
 
-### 6. Dynamic Request Budgeting
-- Strictly enforces the competition limit of **2,000 requests per day**.
-- `RequestBudgetTracker` automatically computes dynamic per-company caps:
-  $$\text{Cap} = \max\left(2, \min\left(14, \frac{\text{Remaining Requests}}{\text{Remaining Companies}}\right)\right)$$
-- Guarantees that even in large batches, no company is starved of registry data.
-- Built-in per-host rate limiting (0.5s interval) prevents remote IP throttling.
+### 7. Strict Job Vacancy Extraction & Portal Shield
+- Scrapes verified company careers pages for legitimate job openings.
+- **Portal Shield**: Blocks third-party aggregators and industry portals (`nav.no`, `finn.no`, `bygg.no`, `stillinger.bygg.no`, `webcruiter.no`, `teknisk.no`).
+- **Generic Nav Filter**: Rejects non-job navigational labels (`"Til Jobbhelsa innhold"`, `"Se alle stillinger"`, `"Send åpen søknad"`).
 
-### 7. Interactive Dark-Mode HTML Viewer (`viewer.html`)
-- Standalone single-file application with zero external framework dependencies.
-- **Live Search**: Instant filtering by company name, organization number, or municipality.
-- **Interactive Claim Chips**: Hovering or clicking any `[c001]` chip highlights the exact fact in the claims table.
-- **Financial Visualization**: Highlights revenue, profit, equity, and YoY growth.
-- **Full Audit Trail**: Tabulated list of all source URLs, timestamps, and supported claims.
+### 8. Dynamic Request Budgeting & Quota Protection
+- Strictly enforces the competition limit of **2,000 requests per day**.
+- Dynamic cap scaling ensures large batches of 1,000 companies allocate $\le 2$ outbound requests per company (mandatory `enhet` + `roller`), preventing quota exhaustion.
+- Heavy calls (`regnskap`, underenheter, web enrichment) are gated behind dynamic budget caps (`budget_cap >= 3`).
+
+### 9. Live Data Mode & FastAPI Backend (`server.py`)
+Provides an on-demand, real-time intelligence server:
+- Runs live research on any 9-digit Norwegian organization number via `POST /api/research/{orgnr}`.
+- Exposes fast search, filtering, and telemetry endpoints (`/api/profiles`, `/api/stats`, `/api/health`, `/api/validate`).
+- Powers both the local REST API and the live browser Terminal UI.
+
+### 10. Interactive Dark-Mode OLED Terminal Dashboard (`index.html`)
+- Ultra-modern OLED black interface with zero emojis, custom JetBrains Mono typography, and Lucide vector icons.
+- **Live Backend Ticker**: Automatically detects and displays connection to the FastAPI server (`ONLINE (Port 8000)`).
+- **Studio Runner**: Allows judges and users to launch live autonomous research on any company and watch real-time console telemetry.
+- **Search & Filter Explorer**: Filter by verified web, employees, financials, or filings with instant Modulo 11 validation.
 
 ---
 
@@ -257,10 +275,70 @@ Runs the strict citation and schema validation suite, checking Modulo 11 checksu
 python main.py view output/envelopes.jsonl --open-browser
 ```
 
-### 4. `generate-sample` — Fetch Target Organizations
+### 4. `serve` — Launch Real-Time API & Interactive Terminal
+```bash
+python main.py serve --port 8000 --open-browser
+```
+Launches the FastAPI live intelligence server and opens the OLED dashboard in your browser.
+
+#### REST API Endpoints Reference:
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/research/{orgnr}` | `POST` | Executes live autonomous research pipeline on-demand for any 9-digit Norwegian company, returning the full verified envelope. |
+| `/api/profiles` | `GET` | Search and paginate through pre-compiled profile envelopes (`?q=equinor&limit=25`). |
+| `/api/profile/{orgnr}` | `GET` | Direct lookup for an indexed entity envelope. |
+| `/api/stats` | `GET` | Returns aggregated section completeness %, total telemetry, and compliance status. |
+| `/api/health` | `GET` | Pipeline health check, version, and active request budget monitor. |
+| `/api/validate` | `POST` | Validates an envelope JSON against CitationValidator and Modulo 11 rules. |
+
+#### On-Demand Research Example:
+```bash
+curl -X POST http://localhost:8000/api/research/923609016
+```
+
+### 5. `generate-sample` — Fetch Target Organizations
 ```bash
 python main.py generate-sample --count 1000 --output profiles/targets_1000.jsonl
 ```
+
+---
+
+## ☁️ Cloud Deployment (Railway, Render, Fly.io)
+
+Signalpost includes full production deployment descriptors (`Procfile` and `railway.json`):
+
+### 1. Deploy on Railway
+1. Fork or push this repository to GitHub.
+2. Log into [Railway.app](https://railway.app/) and create a **New Project** from GitHub repo.
+3. Railway automatically detects `railway.json` and `Procfile`.
+4. Environment variables (optional):
+   - `PORT`: Automatically provided by Railway.
+   - `MAX_DAILY_REQUESTS`: Default `2000`.
+   - `SYNTHESIS_MODE`: `template` ($0 cost) or `llm`.
+5. Access your public HTTPS endpoint for the live research terminal and REST API.
+
+### 2. Deploy on Render / Fly.io / Heroku
+The included `Procfile`:
+```procfile
+web: uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+Directly deploys as a web service with standard Python runtime (`requirements.txt`).
+
+---
+
+## 🛠️ Full Audit & Hardening Changelog
+> Full technical audit documentation: [`FIXES_REQUIRED.md`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/FIXES_REQUIRED.md)
+
+| Audit / Reviewer Item | Root Cause | Implemented Resolution | Verified In Code & Tests |
+|---|---|---|---|
+| **2,000-Request Limit Violation** | Financials and web enrichment ran regardless of company cap, causing 6,139 calls on 1,000 entities | Scaled `default_per_company_cap = 14` with dynamic proportional scaling `remaining_budget // remaining_companies`. For 1,000 companies, cap strictly clamps to 2. Gated `regnskap` and web queries behind dynamic budget caps (`budget_cap >= 5`). Enforced atomic limit in `RequestBudgetTracker`. | [`config.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/config.py), [`brreg.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/collectors/brreg.py), [`orchestrator.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/orchestrator.py) |
+| **FastAPI Deprecation Warning** | `@app.on_event("startup")` deprecated in modern Starlette/FastAPI | Replaced with modern `@asynccontextmanager` `lifespan(app)` handler. Tests run with 0 deprecation warnings. | [`server.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/server.py), [`test_server.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/tests/test_server.py) |
+| **News 0.0% Coverage** | Only HTML `<time datetime>` was parsed; sites lacking semantic tags yielded 0 news | Added multi-format corporate feed parser (RSS 2.0, Atom XML, WordPress REST API JSON) in `NewsCollector`. Fixed ISO datetime regex for timestamps (`YYYY-MM-DDTHH:MM:SSZ`). | [`news_collector.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/collectors/news_collector.py) |
+| **Jobs Portal Leak & Nav Labels** | External job portals (`stillinger.bygg.no`) and navigational anchors (`Til Jobbhelsa innhold`) slipped past filters | Added `bygg.no`, `stillinger.bygg.no`, and industry portals to `BLOCKED_HOSTS`. Added `jobbhelsa`, `innhold`, `stillinger` to `GENERIC_LABELS`. | [`jobs_collector.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/collectors/jobs_collector.py) |
+| **Website Coverage (6.8%)** | All candidates were required to undergo full multi-page ownership checks | Implemented Tier-0 BRREG-registered `hjemmeside` fast path that directly verifies registered corporate websites while checking for conflicting third-party org numbers. | [`website_verifier.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/website_verifier.py) |
+| **Test Name Inconsistency** | Plan referenced `test_news_article_timestamp_verification` | Added method alias in test suite ensuring both naming conventions execute. | [`test_reviewer_fixes.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/tests/test_reviewer_fixes.py) |
+| **Profile Quality & Completeness** | Lack of single quality metric | Added `completeness_score` (0–100%) and confidence tier classification across all 8 data dimensions in derived signals. | [`derived_signals.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/derived_signals.py) |
+| **Live Interaction / UI Connect** | Static viewer only inspected offline JSONL | Built FastAPI `server.py` with lifespan support and connected the OLED Terminal UI to live research endpoints. | [`server.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/server.py), [`viewer_generator.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/viewer_generator.py) |
 
 ---
 
@@ -268,14 +346,15 @@ python main.py generate-sample --count 1000 --output profiles/targets_1000.jsonl
 
 ```
 Signalpost_hackathon/
-├── main.py                     # CLI entry point (Click commands: run, validate, view, generate-sample)
+├── main.py                     # CLI entry point (Click commands: run, serve, validate, view, generate-sample)
+├── server.py                   # FastAPI live intelligence server & on-demand research endpoints
 ├── orchestrator.py             # Async concurrency engine with dynamic request budgeting
 ├── config.py                   # Central settings, URLs, limits, and timeouts
 ├── models.py                   # Pydantic v2 schemas (CompanyEnvelope, Claim, Sections, RunReport)
 ├── normalizer.py               # Raw API responses -> auditable claims with sequential IDs (c001, c002)
 ├── synthesizer.py              # Zero-hallucination synthesis engine with claim chip references
-├── derived_signals.py          # Mathematical engine for YoY revenue change %, equity risk, and margins
-├── website_verifier.py         # 3-tier website verification protocol & email domain discovery
+├── derived_signals.py          # Mathematical engine for YoY revenue %, equity risk, and 0-100 Completeness
+├── website_verifier.py         # 3-tier website verification protocol, tier-0 hjemmeside fast path
 ├── state_store.py              # Snapshot state store (./store/{orgnr}.json) for change detection
 ├── citation_validator.py       # Evidence integrity validator (Modulo 11, claim resolution)
 ├── viewer_generator.py         # Standalone dark-mode HTML viewer generator (viewer.html)

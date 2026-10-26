@@ -138,9 +138,19 @@ class Orchestrator:
         company_name = enhet_data.get("navn", "")
 
         # 2. Stage 2: Website Discovery & 3-Tier Verification Protocol
-        website_verification_res = await self.verifier.verify_website(
-            session, clean_org, company_name, enhet_data
-        )
+        # Probe website if budget allows (budget_cap >= 3) or if replaying fixtures
+        if budget_cap >= 3 or (self.verifier.fixture_manager and self.verifier.fixture_manager.is_replaying()):
+            website_verification_res = await self.verifier.verify_website(
+                session, clean_org, company_name, enhet_data
+            )
+        else:
+            registry_site, _ = self.verifier.extract_candidates_from_registry(enhet_data)
+            website_verification_res = {
+                "status": "not_available",
+                "verification_method": "skipped_budget_cap",
+                "official_website": registry_site,
+                "reason": "Website active HTTP probe skipped due to request budget cap",
+            }
 
         # 3. Stage 3: Web Enrichment (Only on verified sites)
         web_enrichment_res: dict[str, Any] = {}
@@ -154,7 +164,7 @@ class Orchestrator:
             )
             # Fetch jobs if careers URL found and cap allows
             careers_url = web_enrichment_res.get("careers_url")
-            if careers_url and budget_cap >= 4:
+            if careers_url and budget_cap >= 5:
                 jobs_res = await self.jobs.fetch_jobs(
                     session, clean_org, company_name, careers_url
                 )
@@ -190,7 +200,7 @@ class Orchestrator:
 
         # 4. Stage 4: Kunngjøringer (Official corporate announcements)
         announcements_res: dict[str, Any] = {}
-        if budget_cap >= 3:
+        if budget_cap >= 5:
             announcements_res = await self.announcements.fetch_announcements(
                 session, clean_org, max_items=6
             )

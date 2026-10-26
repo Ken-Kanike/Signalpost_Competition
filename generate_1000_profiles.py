@@ -98,10 +98,10 @@ async def generate_1000_profiles(
     console.print(f"[bold green]Ready to research {len(org_numbers)} Norwegian companies with full pipeline.[/bold green]")
 
     # 2. Run full Orchestrator pipeline
-    # We allocate a generous request budget (25,000) so no rich sections (leadership, accounts, announcements) are skipped
+    # Strict adherence to competition quota (max 2,000 outbound HTTP requests)
     config = AgentConfig(
-        max_daily_requests=25000,
-        per_host_min_interval_sec=0.2,
+        max_daily_requests=2000,
+        per_host_min_interval_sec=0.1,
         synthesis_mode="template",
     )
     orchestrator = Orchestrator(config)

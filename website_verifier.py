@@ -138,7 +138,45 @@ class WebsiteVerifier:
             if cached is not None:
                 return cached
 
-        # Try candidates in order
+        # Tier 0: BRREG-registered hjemmeside fast path.
+        # If the company itself registered this URL in the official registry, trust it
+        # unless a conflicting org number proves it belongs to a different entity.
+        if registry_site:
+            registry_url = self._normalize_url(registry_site)
+            if registry_url:
+                if self.budget_tracker and not await self.budget_tracker.record_request():
+                    pass  # fall through to regular candidate loop
+                else:
+                    if self.rate_limiter:
+                        await self.rate_limiter.wait(registry_url)
+                    try:
+                        timeout = aiohttp.ClientTimeout(total=self.config.request_timeout_sec)
+                        async with session.get(
+                            registry_url, headers=self.headers, timeout=timeout, allow_redirects=True
+                        ) as resp:
+                            if resp.status in (200, 301, 302, 307, 308):
+                                final_url = str(resp.url)
+                                html = await resp.text(errors="replace")
+                                ownership = self._check_site_ownership(html, clean_org, company_name)
+                                if ownership != "parent_group":
+                                    # Registry-listed + not a parent group = accept
+                                    result = {
+                                        "status": "available",
+                                        "verification_method": "tier0_brreg_registered",
+                                        "official_website": self._clean_final_url(final_url),
+                                        "html": html,
+                                        "reason": (
+                                            f"URL registered directly in Brønnøysund Enhetsregisteret "
+                                            f"(ownership: {ownership})"
+                                        ),
+                                    }
+                                    self._maybe_save_fixture(clean_org, result)
+                                    return result
+                                # If parent_group: fall through to remaining candidates
+                    except Exception as e:
+                        logger.debug(f"Tier-0 hjemmeside check failed for {clean_org}: {e}")
+
+        # Try remaining candidates in order (tier 1/2/3)
         for candidate_url in candidates:
             # Check budget
             if self.budget_tracker and not await self.budget_tracker.record_request():
@@ -158,7 +196,7 @@ class WebsiteVerifier:
 
                     final_url = str(resp.url)
                     html = await resp.text(errors="replace")
-                    
+
                     # 1. Tier 1: Check if orgnr appears in HTML / JSON-LD
                     if self._check_orgnr_in_html(html, clean_org):
                         result = {

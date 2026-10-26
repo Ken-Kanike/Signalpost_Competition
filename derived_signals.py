@@ -121,4 +121,43 @@ class DerivedSignalsEngine:
                     "status": "available",
                 }
 
+        # 6. Profile Completeness & Confidence Score (0-100)
+        score = 0
+        score_breakdown = {}
+        if sections.get("legal_identity", {}).get("status") == "available":
+            score += 20
+            score_breakdown["legal_identity"] = 20
+        if sections.get("leadership", {}).get("status") == "available":
+            score += 20
+            score_breakdown["leadership"] = 20
+        if sections.get("annual_accounts", {}).get("status") == "available":
+            score += 20
+            score_breakdown["annual_accounts"] = 20
+        if sections.get("website", {}).get("status") == "available":
+            score += 15
+            score_breakdown["website"] = 15
+        if sections.get("announcements", {}).get("status") == "available":
+            score += 10
+            score_breakdown["announcements"] = 10
+        if sections.get("workplaces", {}).get("status") == "available":
+            score += 5
+            score_breakdown["workplaces"] = 5
+        if sections.get("hiring", {}).get("status") == "available":
+            score += 5
+            score_breakdown["hiring"] = 5
+        if sections.get("news", {}).get("status") == "available":
+            score += 5
+            score_breakdown["news"] = 5
+
+        confidence_tier = "High" if score >= 70 else "Medium" if score >= 40 else "Basic"
+        signals["completeness_score"] = {
+            "value": score,
+            "max": 100,
+            "percentage": f"{score}%",
+            "confidence_tier": confidence_tier,
+            "description": f"Profile completeness score: {score}/100 ({confidence_tier} Confidence)",
+            "breakdown": score_breakdown,
+            "status": "available",
+        }
+
         return signals

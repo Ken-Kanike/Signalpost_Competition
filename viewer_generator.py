@@ -982,6 +982,9 @@ class ViewerGenerator:
     </div>
 
     <div class="header-ticker">
+      <div class="ticker-stat" id="server-status-ticker" title="Signalpost Live FastAPI Backend Server">
+        Backend: <strong id="server-status-label" style="color:#f59e0b;">CHECKING...</strong>
+      </div>
       <div class="ticker-stat">Companies: <strong id="tele-total">0</strong></div>
       <div class="ticker-stat">Verified Domains: <strong id="tele-web">0</strong></div>
       <div class="ticker-stat emerald">Claims: <strong id="tele-claims">0</strong></div>
@@ -1467,11 +1470,14 @@ Awaiting target organization number...
         renderDetail(filteredData[0]);
       }} else {{
         terminalStage.innerHTML = `
-          <div style="display:flex; height:100%; align-items:center; justify-content:center; color:var(--text-muted); flex-direction:column; gap:0.5rem;">
-            <span>No companies matching query "${{q}}"</span>
+          <div style="display:flex; height:100%; align-items:center; justify-content:center; color:var(--text-muted); flex-direction:column; gap:0.75rem; padding:2rem; text-align:center;">
+            <i data-lucide="search-x" style="width:40px; height:40px; color:#52525b;"></i>
+            <span style="font-size:0.9rem; color:var(--text-primary);">No pre-compiled companies matching query "<b>${{q}}</b>"</span>
+            ${{qClean && qClean.length === 9 ? `<button class="btn-terminal accent" onclick="fillStudioTarget('${{qClean}}'); navigatePage('studio', document.querySelectorAll('.nav-page-btn')[1]); runLiveStudioAgent();" style="padding:0.6rem 1.2rem; font-size:0.85rem;"><i data-lucide="play"></i> Research Org ${{qClean}} Live via Server API</button>` : ''}}
             <button class="btn-terminal" onclick="searchInput.value=''; applyFiltersAndSearch();">Clear Filters</button>
           </div>
         `;
+        lucide.createIcons();
       }}
     }}
 
@@ -1631,13 +1637,13 @@ Awaiting target organization number...
 
           <div class="kpi-tile">
             <div class="kpi-tile-header">
-              <span>Evidence Verification</span>
-              <i data-lucide="check-circle-2"></i>
+              <span>Completeness & Confidence</span>
+              <i data-lucide="shield-check"></i>
             </div>
-            <div class="kpi-tile-value" style="font-size:1.05rem; color:${{website.status === 'available' ? '#34d399' : 'var(--text-muted)'}};">
-              ${{website.status === 'available' ? '✓ Tier Verified' : 'Unverified'}}
+            <div class="kpi-tile-value" style="font-size:1.15rem; color:${{signals.completeness_score ? (signals.completeness_score.value >= 70 ? '#34d399' : signals.completeness_score.value >= 40 ? '#38bdf8' : '#f59e0b') : (website.status === 'available' ? '#34d399' : 'var(--text-muted)')}};">
+              ${{signals.completeness_score ? signals.completeness_score.percentage + ' (' + signals.completeness_score.confidence_tier + ')' : (website.status === 'available' ? '✓ Tier Verified' : 'Standard')}}
             </div>
-            <div class="kpi-tile-delta">${{website.verification_method || '3-Tier Check'}}</div>
+            <div class="kpi-tile-delta">${{signals.completeness_score ? signals.completeness_score.description : (website.verification_method || '3-Tier Check')}}</div>
           </div>
         </div>
 
@@ -2023,7 +2029,34 @@ Awaiting target organization number...
       }}
       appendLog('✓ Modulo 11 Checksum Verified: 100% Valid Norwegian Entity Number.');
 
-      // 2. Fetch Enhet from BRREG open API
+      // 2. Execute Research via Signalpost FastAPI Server if available
+      appendLog('Connecting to Signalpost Live Intelligence Server (/api/research/' + orgnr + ')...');
+      try {{
+        const liveResp = await fetch(`/api/research/${{orgnr}}`, {{ method: 'POST' }});
+        if (liveResp.ok) {{
+          const liveEnv = await liveResp.json();
+          appendLog('✓ Live Server Pipeline execution completed with 100% citation grounding!');
+          const activeSecs = Object.keys(liveEnv.sections || {{}}).filter(k => liveEnv.sections[k].status === 'available');
+          appendLog(`✓ Discovered sections: ${{activeSecs.join(', ')}}`);
+          appendLog(`✓ Citations: ${{liveEnv.sources?.length || 0}} verified source URLs linked.`);
+          const cScore = liveEnv.derived_signals?.completeness_score?.value;
+          if (cScore !== undefined) {{
+            appendLog(`✓ Completeness Score: ${{cScore}}/100 (${{liveEnv.derived_signals.completeness_score.confidence_tier}} Confidence)`);
+          }}
+          finishExecution(liveEnv);
+          return;
+        }} else if (liveResp.status === 400 || liveResp.status === 404) {{
+          const errData = await liveResp.json().catch(() => ({{}}));
+          appendLog(`❌ Server returned HTTP ${{liveResp.status}}: ${{errData.detail || 'Entity not found'}}`);
+          statusPill.innerText = 'NOT FOUND';
+          statusPill.style.color = '#f43f5e';
+          return;
+        }}
+      }} catch (err) {{
+        appendLog(`ℹ️ Live backend server offline or standalone viewer mode. Falling back to browser pipeline.`);
+      }}
+
+      // 3. Client-Side Browser Fallback Pipeline
       let enhetData = null;
       appendLog(`Querying https://data.brreg.no/enhetsregisteret/api/enheter/${{orgnr}}...`);
       try {{
@@ -2212,13 +2245,32 @@ Awaiting target organization number...
       }});
     }}
 
-    function loadCompiledToExplorer() {{
-      if (!lastCompiledEnvelope) return;
-      navigatePage('explorer', document.querySelector('.nav-page-btn'));
-      renderDetail(lastCompiledEnvelope);
+    async function checkBackendConnection() {{
+      const lbl = document.getElementById('server-status-label');
+      const ticker = document.getElementById('server-status-ticker');
+      if (!lbl) return;
+      try {{
+        const r = await fetch('/api/health');
+        if (r.ok) {{
+          const d = await r.json();
+          lbl.innerText = 'ONLINE (Port 8000)';
+          lbl.style.color = '#34d399';
+          if (ticker) ticker.classList.add('emerald');
+          window.SIGNALPOST_BACKEND_ONLINE = true;
+        }} else {{
+          lbl.innerText = 'STANDALONE';
+          lbl.style.color = '#a1a1aa';
+          window.SIGNALPOST_BACKEND_ONLINE = false;
+        }}
+      }} catch (e) {{
+        lbl.innerText = 'STANDALONE';
+        lbl.style.color = '#a1a1aa';
+        window.SIGNALPOST_BACKEND_ONLINE = false;
+      }}
     }}
 
     // Boot Terminal Application
+    checkBackendConnection();
     loadSavedSettings();
     applyFiltersAndSearch();
   </script>
