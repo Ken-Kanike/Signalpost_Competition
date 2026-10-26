@@ -119,7 +119,7 @@ An end-to-end audit of the codebase against the reviewer feedback and real Norwe
 
 #### A. `Procfile`
 ```procfile
-web: uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}
+web: python server.py
 ```
 
 #### B. `railway.json`
@@ -130,7 +130,7 @@ web: uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "uvicorn server:app --host 0.0.0.0 --port $PORT",
+    "startCommand": "python server.py",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
