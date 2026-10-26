@@ -193,6 +193,29 @@ class TestReviewerFixes(unittest.TestCase):
         self.assertEqual(len(sec["claims"]), 1)
         self.assertEqual(sec["claims"][0]["name"], "Anders Opedal")
 
+    def test_proff_supplementary_leadership(self):
+        normalizer = Normalizer()
+
+        # BRREG has no registered roles
+        empty_roller = {"data": {"rollegrupper": []}, "available": False}
+        proff_raw = {
+            "status": "available",
+            "url": "https://proff.no/selskap/-/923609016",
+            "officers": [
+                {"name": "Kari Nordmann", "role": "Daglig leder"},
+                {"name": "Ola Nordmann", "role": "Styreleder"},
+            ],
+        }
+
+        sec = normalizer._normalize_leadership(
+            empty_roller, "923609016", "2026-10-26", proff_raw=proff_raw
+        )
+        self.assertEqual(sec["status"], "available")
+        self.assertEqual(len(sec["claims"]), 2)
+        self.assertEqual(sec["claims"][0]["name"], "Kari Nordmann")
+        self.assertEqual(sec["claims"][0]["role"], "Daglig leder")
+        self.assertIn("c001", sec["claims"][0]["claim_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

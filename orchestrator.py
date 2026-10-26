@@ -203,6 +203,13 @@ class Orchestrator:
                 "available": False,
             }
 
+        # Check supplementary Proff.no if BRREG roller is empty and budget cap allows
+        proff_res: dict[str, Any] = {}
+        roller_data = brreg_results.get("roller", {}).get("data")
+        roller_has_data = bool(roller_data and (isinstance(roller_data, list) or roller_data.get("rollegrupper")))
+        if not roller_has_data and (budget_cap >= 8 or (self.web_enricher.fixture_manager and self.web_enricher.fixture_manager.is_replaying())):
+            proff_res = await self.web_enricher.enrich_from_proff(session, clean_org)
+
         # 5. Stage 5: Normalization & Sequential Claim ID Assignment
         sections, source_records = self.normalizer.normalize(
             orgnr=clean_org,
@@ -215,6 +222,7 @@ class Orchestrator:
             web_enrichment_raw=web_enrichment_res,
             jobs_raw=jobs_res,
             news_raw=news_res,
+            proff_raw=proff_res,
         )
 
         # 6. Stage 6: Derived Signals Engine (YoY revenue change, equity status, workforce)

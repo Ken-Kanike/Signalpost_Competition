@@ -52,6 +52,7 @@ class Normalizer:
         web_enrichment_raw: dict[str, Any],
         jobs_raw: dict[str, Any],
         news_raw: Optional[dict[str, Any]] = None,
+        proff_raw: Optional[dict[str, Any]] = None,
     ) -> tuple[dict[str, Any], list[SourceRecord]]:
         """Normalize all collected raw data into typed envelope sections."""
         self.claim_counter = 0
@@ -73,7 +74,7 @@ class Normalizer:
 
         # 3. Leadership Section
         sections["leadership"] = self._normalize_leadership(
-            roller_raw, clean_org, today
+            roller_raw, clean_org, today, proff_raw=proff_raw
         )
 
         # 4. Workplaces Section
@@ -412,7 +413,11 @@ class Normalizer:
         }
 
     def _normalize_leadership(
-        self, roller_raw: dict[str, Any], orgnr: str, today: str
+        self,
+        roller_raw: dict[str, Any],
+        orgnr: str,
+        today: str,
+        proff_raw: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         data = roller_raw.get("data")
         source_url = (
@@ -427,7 +432,64 @@ class Normalizer:
         else:
             rollegrupper = []
 
-        if not rollegrupper:
+        leadership_claims: list[dict[str, Any]] = []
+
+        if rollegrupper:
+            # Roles structure in BRREG: array of role groups (rollegrupper)
+            for group in rollegrupper:
+                roller_list = group.get("roller", [])
+                for r in roller_list:
+                    if r.get("avregistrert", False):
+                        continue  # Skip deregistered/former roles
+
+                    person = r.get("person", {})
+                    forretningsforer = r.get("enhet", {})  # For legal entities acting as manager/board
+
+                    if person and person.get("erDoed", False):
+                        continue
+
+                    full_name = None
+                    if person:
+                        fn = person.get("navn", {})
+                        if isinstance(fn, dict):
+                            parts = [
+                                fn.get("fornavn", ""),
+                                fn.get("mellomnavn", ""),
+                                fn.get("etternavn", ""),
+                            ]
+                            full_name = " ".join(p for p in parts if p).strip()
+                        elif isinstance(fn, str):
+                            full_name = fn.strip()
+                    elif forretningsforer:
+                        full_name = forretningsforer.get("navn")
+
+                    role_desc = r.get("type", {}).get("beskrivelse") or r.get("type", {}).get("kode")
+
+                    if full_name and role_desc:
+                        cid = self._next_claim_id()
+                        self._register_source(source_url, cid)
+                        leadership_claims.append({
+                            "name": normalize_norwegian_text(full_name),
+                            "role": normalize_norwegian_text(role_desc),
+                            "claim_id": cid,
+                        })
+
+        # USP 6: If BRREG lists no roles (e.g. privacy redaction), check supplementary Proff.no
+        if not leadership_claims and proff_raw and proff_raw.get("status") == "available":
+            proff_url = proff_raw.get("url")
+            for off in proff_raw.get("officers", []):
+                off_name = off.get("name")
+                off_role = off.get("role")
+                if off_name and off_role:
+                    cid = self._next_claim_id()
+                    self._register_source(proff_url, cid)
+                    leadership_claims.append({
+                        "name": normalize_norwegian_text(off_name),
+                        "role": normalize_norwegian_text(off_role),
+                        "claim_id": cid,
+                    })
+
+        if not leadership_claims:
             return {
                 "status": "not_available",
                 "claims": [],
@@ -436,49 +498,8 @@ class Normalizer:
                 "retrieved_date": today,
             }
 
-        leadership_claims: list[dict[str, Any]] = []
-
-        # Roles structure in BRREG: array of role groups (rollegrupper)
-        for group in rollegrupper:
-            roller_list = group.get("roller", [])
-            for r in roller_list:
-                if r.get("avregistrert", False):
-                    continue  # Skip deregistered/former roles
-
-                person = r.get("person", {})
-                forretningsforer = r.get("enhet", {})  # For legal entities acting as manager/board
-
-                if person and person.get("erDoed", False):
-                    continue
-
-                full_name = None
-                if person:
-                    fn = person.get("navn", {})
-                    if isinstance(fn, dict):
-                        parts = [
-                            fn.get("fornavn", ""),
-                            fn.get("mellomnavn", ""),
-                            fn.get("etternavn", ""),
-                        ]
-                        full_name = " ".join(p for p in parts if p).strip()
-                    elif isinstance(fn, str):
-                        full_name = fn.strip()
-                elif forretningsforer:
-                    full_name = forretningsforer.get("navn")
-
-                role_desc = r.get("type", {}).get("beskrivelse") or r.get("type", {}).get("kode")
-
-                if full_name and role_desc:
-                    cid = self._next_claim_id()
-                    self._register_source(source_url, cid)
-                    leadership_claims.append({
-                        "name": normalize_norwegian_text(full_name),
-                        "role": normalize_norwegian_text(role_desc),
-                        "claim_id": cid,
-                    })
-
         return {
-            "status": "available" if leadership_claims else "not_available",
+            "status": "available",
             "claims": leadership_claims[:12],  # Cap top 12 primary roles
             "source_url": source_url,
             "retrieved_date": today,

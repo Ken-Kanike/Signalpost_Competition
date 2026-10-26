@@ -227,3 +227,87 @@ class WebEnricher:
             "contact_phone": contact_phone,
             "careers_url": careers_url,
         }
+
+    async def enrich_from_proff(
+        self, session: aiohttp.ClientSession, orgnr: str
+    ) -> dict[str, Any]:
+        """Fetch supplementary enrichment from Proff.no (credit rating, officers).
+        Respects budget and rate limits; Proff data is strictly supplementary to BRREG.
+        """
+        clean = clean_org_number(orgnr)
+        url = f"{self.config.proff_base_url}/-/{clean}"
+
+        # Replay mode
+        if self.fixture_manager and self.fixture_manager.is_replaying():
+            cached = self.fixture_manager.load_fixture(clean, "proff")
+            if cached is not None:
+                return cached
+
+        # Check budget
+        if self.budget_tracker and not await self.budget_tracker.record_request():
+            return {
+                "status": "not_available",
+                "url": url,
+                "reason": "Request budget limit reached",
+                "credit_rating": None,
+                "officers": [],
+            }
+
+        if self.rate_limiter:
+            await self.rate_limiter.wait(url)
+
+        try:
+            timeout = aiohttp.ClientTimeout(total=self.config.request_timeout_sec)
+            headers = {
+                "Accept": "text/html,application/xhtml+xml",
+                "User-Agent": self.config.user_agent,
+            }
+            async with session.get(url, headers=headers, timeout=timeout) as resp:
+                if resp.status != 200:
+                    return {
+                        "status": "not_available",
+                        "url": url,
+                        "status_code": resp.status,
+                        "reason": f"Proff.no returned HTTP {resp.status}",
+                        "credit_rating": None,
+                        "officers": [],
+                    }
+                html = await resp.text()
+                soup = BeautifulSoup(html, "html.parser")
+                
+                # Extract credit rating badge if available
+                credit_rating = None
+                rating_elem = soup.find(class_=re.compile(r"rating|credit", re.I))
+                if rating_elem:
+                    credit_rating = rating_elem.get_text(strip=True)
+
+                # Extract officer names if listed
+                officers = []
+                for row in soup.find_all("tr"):
+                    cells = [c.get_text(strip=True) for c in row.find_all(["td", "th"])]
+                    if len(cells) >= 2:
+                        name, role = cells[0], cells[1]
+                        if len(name) >= 3 and any(r in role.lower() for r in ["leder", "styre", "direktør"]):
+                            officers.append({"name": name, "role": role})
+
+                result = {
+                    "status": "available" if (credit_rating or officers) else "not_available",
+                    "url": url,
+                    "status_code": 200,
+                    "credit_rating": credit_rating,
+                    "officers": officers[:5],
+                }
+
+                if self.fixture_manager and self.fixture_manager.is_recording():
+                    self.fixture_manager.save_fixture(clean, "proff", result)
+
+                return result
+        except Exception as e:
+            logger.debug(f"Proff.no enrichment skipped for {clean}: {e}")
+            return {
+                "status": "not_available",
+                "url": url,
+                "reason": str(e),
+                "credit_rating": None,
+                "officers": [],
+            }
