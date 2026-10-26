@@ -68,28 +68,36 @@ class BrregCollector:
         if self.rate_limiter:
             await self.rate_limiter.wait(url)
 
-        try:
-            timeout = aiohttp.ClientTimeout(total=self.config.request_timeout_sec)
-            async with session.get(url, headers=self.headers, timeout=timeout) as resp:
-                status_code = resp.status
-                if status_code == 200:
-                    data = await resp.json()
-                    if self.fixture_manager and self.fixture_manager.is_recording():
-                        self.fixture_manager.save_fixture(
-                            orgnr, endpoint_key, {"status_code": status_code, "data": data}
-                        )
-                    return data, status_code, ""
-                elif status_code == 404:
-                    return None, 404, "Resource not found in registry"
-                elif status_code == 410:
-                    return None, 410, "Resource has been deregistered / removed"
-                else:
-                    text = await resp.text()
-                    return None, status_code, f"HTTP {status_code}: {text[:200]}"
-        except asyncio.TimeoutError:
-            return None, 408, "Request timed out"
-        except Exception as e:
-            return None, 500, f"Exception: {str(e)}"
+        for attempt in range(2):
+            try:
+                timeout = aiohttp.ClientTimeout(total=self.config.request_timeout_sec)
+                async with session.get(url, headers=self.headers, timeout=timeout) as resp:
+                    status_code = resp.status
+                    if status_code == 200:
+                        data = await resp.json()
+                        if self.fixture_manager and self.fixture_manager.is_recording():
+                            self.fixture_manager.save_fixture(
+                                orgnr, endpoint_key, {"status_code": status_code, "data": data}
+                            )
+                        return data, status_code, ""
+                    elif status_code == 404:
+                        return None, 404, "Resource not found in registry"
+                    elif status_code == 410:
+                        return None, 410, "Resource has been deregistered / removed"
+                    else:
+                        text = await resp.text()
+                        return None, status_code, f"HTTP {status_code}: {text[:200]}"
+            except asyncio.TimeoutError:
+                if attempt == 0:
+                    await asyncio.sleep(1.0)
+                    continue
+                return None, 408, "Request timed out"
+            except Exception as e:
+                if attempt == 0:
+                    await asyncio.sleep(1.0)
+                    continue
+                return None, 500, f"Exception: {str(e)}"
+        return None, 500, "Unknown network error"
 
     async def fetch_enhet(
         self, session: aiohttp.ClientSession, orgnr: str
@@ -134,6 +142,12 @@ class BrregCollector:
         data, status_code, err = await self._safe_fetch_json(
             session, url, clean, "regnskap"
         )
+        if isinstance(data, dict) and "_embedded" in data:
+            data = data["_embedded"].get("regnskaper", [])
+        elif isinstance(data, dict) and any(
+            k in data for k in ["resultatregnskapResultat", "regnskapsperiode"]
+        ):
+            data = [data]
         return {
             "url": url,
             "status_code": status_code,

@@ -30,11 +30,15 @@ class AgentConfig(BaseModel):
     finn_job_search_url: str = "https://www.finn.no/job/fulltime/search.html"
 
     # Competition Quotas & Limits
-    max_daily_requests: int = 2000
+    max_daily_requests: int = Field(
+        default_factory=lambda: int(os.getenv("MAX_DAILY_REQUESTS", "2000"))
+    )
     default_per_company_cap: int = 14
     min_per_company_cap: int = 2
     max_execution_minutes: int = 45
-    per_host_min_interval_sec: float = 0.5  # Per-host rate limit: 1 request every 0.5s
+    per_host_min_interval_sec: float = Field(
+        default_factory=lambda: float(os.getenv("PER_HOST_MIN_INTERVAL_SEC", "0.2"))
+    )
 
     # Network settings
     request_timeout_sec: float = 12.0

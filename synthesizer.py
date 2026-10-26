@@ -144,7 +144,7 @@ class Synthesizer:
             # Attach derived revenue signal if present
             yoy_sig = derived_signals.get("yoy_revenue_change")
             if yoy_sig:
-                fin_parts.append(f"reflecting an annual {yoy_sig.get('description', '').lower()}")
+                fin_parts.append(f"reflecting {yoy_sig.get('description', '').lower()}")
                 for bid in yoy_sig.get("based_on", []):
                     track(bid)
 

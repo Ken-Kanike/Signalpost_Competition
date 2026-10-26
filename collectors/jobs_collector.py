@@ -6,7 +6,7 @@ Returns 'not_available' safely when no verified job listings exist to prevent fa
 import asyncio
 import re
 from typing import Any, Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 import aiohttp
 from bs4 import BeautifulSoup
 
@@ -129,40 +129,75 @@ class JobsCollector:
                 "reason": str(e),
             }
 
+    GENERIC_LABELS = {
+        "see all jobs", "alle stillinger", "ledige stillinger", "søk stilling", "sok stilling",
+        "send open application", "åpen søknad", "apen soknad", "send åpen søknad", "send apen soknad",
+        "les mer", "se mer", "apply now", "søk her", "sok her", "careers", "karriere", "work with us",
+        "jobb hos oss", "bli en av oss", "view all", "open positions", "find a job", "working at",
+        "our culture", "job openings", "se alle ledige stillinger", "se alle stillinger",
+    }
+    BLOCKED_HOSTS = {
+        "nav.no", "finn.no", "jobbnorge.no", "seek.com", "indeed.com",
+        "arbeidsplassen.nav.no", "webcruiter.no",
+    }
+
     def _parse_careers_html(
         self, html: str, base_url: str, max_jobs: int
     ) -> list[dict[str, Any]]:
-        """Extract job titles and links from careers HTML."""
+        """Extract individual job postings adhering to strict precision rules."""
         soup = BeautifulSoup(html, "html.parser")
         jobs: list[dict[str, Any]] = []
 
-        # Common job title container classes or patterns
+        base_parsed = urlparse(base_url)
+        base_clean = base_url.rstrip("/").lower()
+        base_domain = base_parsed.netloc.lower().replace("www.", "")
+
         for a in soup.find_all("a", href=True):
             href = a["href"].strip()
             text = " ".join(a.stripped_strings)
-            # Must look like an actual vacancy title
-            if len(text) >= 6 and len(text) <= 90:
-                if any(
-                    k in href.lower() or k in text.lower()
-                    for k in [
-                        "job",
-                        "stilling",
-                        "vacancy",
-                        "engineer",
-                        "developer",
-                        "konsulent",
-                        "leder",
-                        "manager",
-                        "analyst",
-                        "rådgiver",
-                        "spesialist",
-                    ]
-                ):
-                    full_link = urljoin(base_url, href)
-                    clean_title = normalize_norwegian_text(text)
-                    if not any(j["title"] == clean_title for j in jobs):
-                        jobs.append({"title": clean_title, "url": full_link})
-                        if len(jobs) >= max_jobs:
-                            break
+            clean_title = normalize_norwegian_text(text)
+            clean_lower = clean_title.lower()
+
+            # Rule 5: Title length 10–80 chars
+            if not (10 <= len(clean_title) <= 80):
+                continue
+
+            # Rule 4: No generic navigation labels or application prompts
+            if (
+                clean_lower in self.GENERIC_LABELS
+                or any(g in clean_lower for g in ["åpen søknad", "apen soknad", "se alle", "see all", "apply now", "jobb hos oss"])
+            ):
+                continue
+
+            full_link = urljoin(base_url, href)
+            parsed_link = urlparse(full_link)
+
+            # Rule 1: Link must differ from careers index page
+            if full_link.rstrip("/").lower() == base_clean:
+                continue
+
+            # Rule 2: No external job portals
+            if any(b in parsed_link.netloc.lower() for b in self.BLOCKED_HOSTS):
+                continue
+
+            # Rule 3: Same domain only (no external or parent redirects)
+            link_domain = parsed_link.netloc.lower().replace("www.", "")
+            if link_domain != base_domain:
+                continue
+
+            # Vacancy indicators in link or title
+            if any(
+                k in href.lower() or k in clean_lower
+                for k in [
+                    "job", "stilling", "vacancy", "engineer", "developer",
+                    "konsulent", "leder", "manager", "analyst", "rådgiver",
+                    "spesialist", "medarbeider", "lead", "officer", "technician",
+                    "coordinator", "koordinator", "arkitekt", "director", "designer"
+                ]
+            ):
+                if not any(j["title"] == clean_title for j in jobs):
+                    jobs.append({"title": clean_title, "url": full_link})
+                    if len(jobs) >= max_jobs:
+                        break
 
         return jobs

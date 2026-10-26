@@ -20,6 +20,7 @@ class TestDerivedSignals(unittest.TestCase):
                     "previous_year_revenue": {"value": 100000000, "claim_id": "c011_prev", "currency": "NOK"},
                     "operating_result": {"value": 11500000, "claim_id": "c012", "currency": "NOK"},
                     "equity": {"value": 45000000, "claim_id": "c015", "currency": "NOK"},
+                    "total_debt": {"value": 90000000, "claim_id": "c016", "currency": "NOK"},
                 }
             }
         }
@@ -48,6 +49,12 @@ class TestDerivedSignals(unittest.TestCase):
         self.assertIn("workforce_scale", signals)
         self.assertIn("Enterprise", signals["workforce_scale"]["classification"])
         self.assertEqual(signals["workforce_scale"]["based_on"], ["c006"])
+
+        # 5. Debt to Equity Ratio
+        self.assertIn("debt_to_equity", signals)
+        self.assertEqual(signals["debt_to_equity"]["value"], 2.0)
+        self.assertEqual(signals["debt_to_equity"]["ratio"], "2.00x")
+        self.assertEqual(signals["debt_to_equity"]["based_on"], ["c016", "c015"])
 
     def test_negative_equity_detection(self):
         engine = DerivedSignalsEngine()

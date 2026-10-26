@@ -15,10 +15,11 @@ from citation_validator import CitationValidator
 from collectors.announcements import AnnouncementsCollector
 from collectors.brreg import BrregCollector
 from collectors.jobs_collector import JobsCollector
+from collectors.news_collector import NewsCollector
 from collectors.web_enricher import WebEnricher
 from config import AgentConfig, default_config
 from derived_signals import DerivedSignalsEngine
-from models import CompanyEnvelope, RunReport, UpdateDiff
+from models import CompanyEnvelope, RunReport, SourceRecord, UpdateDiff
 from normalizer import Normalizer
 from state_store import StateStore
 from synthesizer import Synthesizer
@@ -28,6 +29,7 @@ from utils import (
     RequestBudgetTracker,
     clean_org_number,
     console,
+    get_current_date_str,
     get_current_iso_timestamp,
     is_valid_norwegian_orgnr,
     logger,
@@ -69,6 +71,9 @@ class Orchestrator:
         self.jobs = JobsCollector(
             self.config, self.rate_limiter, self.budget_tracker, self.fixture_manager
         )
+        self.news = NewsCollector(
+            self.config, self.rate_limiter, self.budget_tracker, self.fixture_manager
+        )
         self.normalizer = Normalizer()
         self.signals_engine = DerivedSignalsEngine()
         self.synthesizer = Synthesizer(
@@ -107,6 +112,16 @@ class Orchestrator:
 
         # Entity not found in registry
         if not enhet_res.get("available") or not enhet_data:
+            enhet_url = enhet_res.get("url") or f"{self.config.brreg_enheter_url}/{clean_org}"
+            source_records = [
+                SourceRecord(
+                    url=enhet_url,
+                    source_name="Brønnøysundregistrene (Enhetsregisteret)",
+                    retrieved_date=get_current_date_str(),
+                    status_code=enhet_res.get("status_code", 404),
+                    claims_backed=[],
+                )
+            ]
             return CompanyEnvelope(
                 organisation_number=clean_org,
                 status="not_found",
@@ -117,6 +132,7 @@ class Orchestrator:
                         "reason": enhet_res.get("error", "Entity not found in Brønnøysund Enhetsregisteret"),
                     }
                 },
+                sources=source_records,
             )
 
         company_name = enhet_data.get("navn", "")
@@ -129,15 +145,16 @@ class Orchestrator:
         # 3. Stage 3: Web Enrichment (Only on verified sites)
         web_enrichment_res: dict[str, Any] = {}
         jobs_res: dict[str, Any] = {}
+        news_res: dict[str, Any] = {}
         if website_verification_res.get("status") == "available":
             verified_url = website_verification_res.get("official_website")
             prefetched_html = website_verification_res.get("html")
             web_enrichment_res = await self.web_enricher.enrich_from_website(
-                session, verified_url, prefetched_html
+                session, verified_url, prefetched_html, company_name=company_name
             )
             # Fetch jobs if careers URL found and cap allows
             careers_url = web_enrichment_res.get("careers_url")
-            if careers_url and budget_cap >= 6:
+            if careers_url and budget_cap >= 4:
                 jobs_res = await self.jobs.fetch_jobs(
                     session, clean_org, company_name, careers_url
                 )
@@ -147,6 +164,11 @@ class Orchestrator:
                     "claims": [],
                     "reason": "No careers page identified on verified website",
                 }
+
+            # Fetch news articles from verified site (utilizes prefetched HTML)
+            news_res = await self.news.fetch_news(
+                session, clean_org, verified_url, prefetched_html, max_items=4
+            )
         else:
             web_enrichment_res = {
                 "status": "not_available",
@@ -160,10 +182,15 @@ class Orchestrator:
                 "claims": [],
                 "reason": "Website not verified, skipping careers scraping",
             }
+            news_res = {
+                "status": "not_available",
+                "claims": [],
+                "reason": "Website not verified, skipping news collection",
+            }
 
         # 4. Stage 4: Kunngjøringer (Official corporate announcements)
         announcements_res: dict[str, Any] = {}
-        if budget_cap >= 5:
+        if budget_cap >= 3:
             announcements_res = await self.announcements.fetch_announcements(
                 session, clean_org, max_items=6
             )
@@ -187,6 +214,7 @@ class Orchestrator:
             website_raw=website_verification_res,
             web_enrichment_raw=web_enrichment_res,
             jobs_raw=jobs_res,
+            news_raw=news_res,
         )
 
         # 6. Stage 6: Derived Signals Engine (YoY revenue change, equity status, workforce)
@@ -247,6 +275,17 @@ class Orchestrator:
         success_count = 0
         fail_count = 0
 
+        section_availability_counts = {
+            "legal_identity": 0,
+            "annual_accounts": 0,
+            "leadership": 0,
+            "workplaces": 0,
+            "website": 0,
+            "hiring": 0,
+            "announcements": 0,
+            "news": 0,
+        }
+
         async with aiohttp.ClientSession(connector=connector) as session:
             with Progress(
                 SpinnerColumn(),
@@ -285,6 +324,12 @@ class Orchestrator:
                                     elif isinstance(claims, list):
                                         total_claims_count += len(claims)
                             total_sources_count += len(env.sources)
+
+                            # Track section availability
+                            for sec_k in section_availability_counts:
+                                sec_data = env.sections.get(sec_k, {})
+                                if isinstance(sec_data, dict) and sec_data.get("status") == "available":
+                                    section_availability_counts[sec_k] += 1
                         else:
                             fail_count += 1
 
@@ -304,6 +349,11 @@ class Orchestrator:
         avg_claims = (total_claims_count / success_count) if success_count > 0 else 0.0
         avg_sources = (total_sources_count / success_count) if success_count > 0 else 0.0
 
+        section_completeness = {
+            k: round((v / total_companies) * 100, 1) if total_companies > 0 else 0.0
+            for k, v in section_availability_counts.items()
+        }
+
         # Calculate estimated cost
         # Default template synthesis uses $0 external model cost
         cost_usd = 0.0
@@ -320,6 +370,7 @@ class Orchestrator:
             estimated_cost_usd=cost_usd,
             average_claims_per_envelope=round(avg_claims, 1),
             average_sources_per_envelope=round(avg_sources, 1),
+            section_completeness=section_completeness,
             compliance_checks={
                 "within_2000_request_limit": self.budget_tracker.total_requests_made <= 2000,
                 "within_45_minute_limit": duration <= (45 * 60),

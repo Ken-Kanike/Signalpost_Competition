@@ -77,6 +77,12 @@ def cli():
     default="",
     help="Directory to replay recorded fixtures offline without network calls",
 )
+@click.option(
+    "--max-requests",
+    default=None,
+    type=int,
+    help="Maximum outbound request budget (default: 2000 or MAX_DAILY_REQUESTS)",
+)
 def run_command(
     target: str,
     output_dir: str,
@@ -85,6 +91,7 @@ def run_command(
     generate_viewer: bool,
     record: str,
     replay: str,
+    max_requests: Optional[int],
 ):
     """Run research agent on a single company number or batch file (.jsonl / .txt)."""
     out_path = Path(output_dir)
@@ -139,11 +146,15 @@ def run_command(
     )
 
     # Configure agent
-    config = AgentConfig(
-        synthesis_mode=synthesis_mode,
-        record_fixtures_dir=record,
-        replay_fixtures_dir=replay,
-    )
+    config_kwargs = {
+        "synthesis_mode": synthesis_mode,
+        "record_fixtures_dir": record,
+        "replay_fixtures_dir": replay,
+    }
+    if max_requests is not None:
+        config_kwargs["max_daily_requests"] = max_requests
+
+    config = AgentConfig(**config_kwargs)
     orchestrator = Orchestrator(config)
 
     # Run execution

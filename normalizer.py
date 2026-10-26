@@ -11,6 +11,7 @@ from models import (
     SectionHiring,
     SectionLeadership,
     SectionLegalIdentity,
+    SectionNews,
     SectionWebsite,
     SectionWorkplaces,
     SourceRecord,
@@ -50,6 +51,7 @@ class Normalizer:
         website_raw: dict[str, Any],
         web_enrichment_raw: dict[str, Any],
         jobs_raw: dict[str, Any],
+        news_raw: Optional[dict[str, Any]] = None,
     ) -> tuple[dict[str, Any], list[SourceRecord]]:
         """Normalize all collected raw data into typed envelope sections."""
         self.claim_counter = 0
@@ -91,6 +93,9 @@ class Normalizer:
         sections["announcements"] = self._normalize_announcements(
             announcements_raw, clean_org, today
         )
+
+        # 8. News Section
+        sections["news"] = self._normalize_news(news_raw or {}, clean_org, today)
 
         # Build Source Records
         source_records: list[SourceRecord] = []
@@ -249,6 +254,34 @@ class Normalizer:
                 "status": "available",
             }
 
+        # Share capital (innskuddskapital)
+        kapital = data.get("kapital", {})
+        share_cap = kapital.get("innskuddskapital") if isinstance(kapital, dict) else None
+        if share_cap is not None:
+            cid = self._next_claim_id()
+            self._register_source(source_url, cid)
+            claims["share_capital"] = {
+                "value": share_cap,
+                "currency": kapital.get("valuta", "NOK"),
+                "claim_id": cid,
+                "source_url": source_url,
+                "retrieved_date": today,
+                "status": "available",
+            }
+
+        # VAT registration status (registrertIMvaregisteret)
+        vat_reg = data.get("registrertIMvaregisteret")
+        if vat_reg is not None:
+            cid = self._next_claim_id()
+            self._register_source(source_url, cid)
+            claims["vat_registered"] = {
+                "value": bool(vat_reg),
+                "claim_id": cid,
+                "source_url": source_url,
+                "retrieved_date": today,
+                "status": "available",
+            }
+
         return {
             "status": "available",
             "claims": claims,
@@ -257,13 +290,24 @@ class Normalizer:
     def _normalize_annual_accounts(
         self, regnskap_raw: dict[str, Any], orgnr: str, today: str
     ) -> dict[str, Any]:
-        data_list = regnskap_raw.get("data")
+        data_raw = regnskap_raw.get("data")
         source_url = (
             regnskap_raw.get("url")
             or f"https://data.brreg.no/regnskapsregisteret/regnskap/{orgnr}"
         )
 
-        if not data_list or not isinstance(data_list, list):
+        if isinstance(data_raw, dict) and "_embedded" in data_raw:
+            data_list = data_raw["_embedded"].get("regnskaper", [])
+        elif isinstance(data_raw, dict) and any(
+            k in data_raw for k in ["resultatregnskapResultat", "regnskapsperiode"]
+        ):
+            data_list = [data_raw]
+        elif isinstance(data_raw, list):
+            data_list = data_raw
+        else:
+            data_list = []
+
+        if not data_list:
             return {
                 "status": "not_available",
                 "claims": {},
@@ -291,9 +335,9 @@ class Normalizer:
         eiendeler_obj = latest.get("eiendeler", {})
 
         # Extract primary metrics
-        revenue_val = driftsinntekter_obj.get("salgsinntekter") or driftsinntekter_obj.get(
-            "sumDriftsinntekter"
-        )
+        revenue_val = driftsinntekter_obj.get("sumDriftsinntekter")
+        if revenue_val is None:
+            revenue_val = driftsinntekter_obj.get("salgsinntekter")
         operating_res = driftsresultat_obj.get("driftsresultat")
         net_inc = res_obj.get("aarsresultat")
         assets = eiendeler_obj.get("sumEiendeler")
@@ -376,7 +420,14 @@ class Normalizer:
             or f"https://data.brreg.no/enhetsregisteret/api/enheter/{orgnr}/roller"
         )
 
-        if not data or not isinstance(data, list):
+        if isinstance(data, dict):
+            rollegrupper = data.get("rollegrupper", [])
+        elif isinstance(data, list):
+            rollegrupper = data
+        else:
+            rollegrupper = []
+
+        if not rollegrupper:
             return {
                 "status": "not_available",
                 "claims": [],
@@ -388,18 +439,30 @@ class Normalizer:
         leadership_claims: list[dict[str, Any]] = []
 
         # Roles structure in BRREG: array of role groups (rollegrupper)
-        for group in data:
+        for group in rollegrupper:
             roller_list = group.get("roller", [])
             for r in roller_list:
+                if r.get("avregistrert", False):
+                    continue  # Skip deregistered/former roles
+
                 person = r.get("person", {})
                 forretningsforer = r.get("enhet", {})  # For legal entities acting as manager/board
+
+                if person and person.get("erDoed", False):
+                    continue
 
                 full_name = None
                 if person:
                     fn = person.get("navn", {})
-                    first = fn.get("fornavn", "")
-                    last = fn.get("etternavn", "")
-                    full_name = f"{first} {last}".strip()
+                    if isinstance(fn, dict):
+                        parts = [
+                            fn.get("fornavn", ""),
+                            fn.get("mellomnavn", ""),
+                            fn.get("etternavn", ""),
+                        ]
+                        full_name = " ".join(p for p in parts if p).strip()
+                    elif isinstance(fn, str):
+                        full_name = fn.strip()
                 elif forretningsforer:
                     full_name = forretningsforer.get("navn")
 
@@ -553,6 +616,38 @@ class Normalizer:
         return {
             "status": "available",
             "claims": claims,
+            "source_url": source_url,
+            "retrieved_date": today,
+        }
+
+    def _normalize_news(
+        self, news_raw: dict[str, Any], orgnr: str, today: str
+    ) -> dict[str, Any]:
+        status = news_raw.get("status", "not_available")
+        claims_list = news_raw.get("claims", [])
+        source_url = news_raw.get("source_url")
+
+        if status != "available" or not claims_list:
+            return {
+                "status": "not_available",
+                "claims": [],
+                "reason": news_raw.get("reason", "No verified news articles found"),
+            }
+
+        formatted_claims = []
+        for n in claims_list:
+            cid = self._next_claim_id()
+            self._register_source(source_url or n.get("url"), cid)
+            formatted_claims.append({
+                "title": n.get("title"),
+                "url": n.get("url"),
+                "published_date": n.get("published_date"),
+                "claim_id": cid,
+            })
+
+        return {
+            "status": "available",
+            "claims": formatted_claims,
             "source_url": source_url,
             "retrieved_date": today,
         }

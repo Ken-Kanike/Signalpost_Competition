@@ -171,17 +171,27 @@ class WebsiteVerifier:
                         self._maybe_save_fixture(clean_org, result)
                         return result
 
-                    # 2. Tier 2: Check if this was the registry-listed website
+                    # 2. Tier 2: Check if this was the registry-listed website with ownership verification
                     if registry_site and self._is_same_host(candidate_url, registry_site):
-                        result = {
-                            "status": "available",
-                            "verification_method": "tier2_registry_listed",
-                            "official_website": self._clean_final_url(final_url),
-                            "html": html,
-                            "reason": "Website listed directly in Brønnøysund Enhetsregisteret",
-                        }
-                        self._maybe_save_fixture(clean_org, result)
-                        return result
+                        ownership = self._check_site_ownership(html, clean_org, company_name)
+                        if ownership == "parent_group":
+                            logger.debug(
+                                f"Skipping parent group website {candidate_url} for {clean_org}"
+                            )
+                            continue
+                        elif ownership in ("confirmed", "name_match"):
+                            result = {
+                                "status": "available",
+                                "verification_method": "tier2_registry_listed",
+                                "official_website": self._clean_final_url(final_url),
+                                "html": html,
+                                "reason": f"Website listed directly in Brønnøysund Enhetsregisteret ({ownership})",
+                            }
+                            self._maybe_save_fixture(clean_org, result)
+                            return result
+                        else:
+                            # Ambiguous: neither orgnr nor distinctive name found on page
+                            continue
 
                     # 3. Tier 3: Distinctive name match + no conflicting orgnr
                     conflicting_org = self._find_conflicting_orgnr(html, clean_org)
@@ -210,6 +220,16 @@ class WebsiteVerifier:
         }
         self._maybe_save_fixture(clean_org, unverified_result)
         return unverified_result
+
+    def _check_site_ownership(self, html: str, orgnr: str, company_name: str) -> str:
+        """Verify site ownership: 'confirmed', 'name_match', 'parent_group', or 'ambiguous'."""
+        if self._check_orgnr_in_html(html, orgnr):
+            return "confirmed"
+        if self._find_conflicting_orgnr(html, orgnr):
+            return "parent_group"  # Different company's orgnr found
+        if self._check_name_in_html(html, company_name):
+            return "name_match"
+        return "ambiguous"
 
     def _check_orgnr_in_html(self, html: str, orgnr: str) -> bool:
         """Check if 9-digit orgnr exists in raw text, formatted (e.g. 923 609 016), or JSON-LD."""

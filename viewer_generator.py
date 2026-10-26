@@ -1541,6 +1541,8 @@ Awaiting target organization number...
       const leaders = comp.sections?.leadership?.claims || [];
       const workplaces = comp.sections?.workplaces?.claims || [];
       const announcements = comp.sections?.announcements?.claims || [];
+      const news = comp.sections?.news?.claims || [];
+      const hiring = comp.sections?.hiring?.claims || [];
       const website = comp.sections?.website || {{}};
       const signals = comp.derived_signals || {{}};
       const sources = comp.sources || [];
@@ -1667,6 +1669,12 @@ Awaiting target organization number...
           </button>
           <button class="tab-nav-button ${{currentActiveTab === 'announcements' ? 'active' : ''}}" onclick="switchTab('announcements', this)">
             <i data-lucide="calendar"></i> Announcements (${{announcements.length}})
+          </button>
+          <button class="tab-nav-button ${{currentActiveTab === 'news' ? 'active' : ''}}" onclick="switchTab('news', this)">
+            <i data-lucide="newspaper"></i> News (${{news.length}})
+          </button>
+          <button class="tab-nav-button ${{currentActiveTab === 'hiring' ? 'active' : ''}}" onclick="switchTab('hiring', this)">
+            <i data-lucide="briefcase"></i> Vacancies (${{hiring.length}})
           </button>
           <button class="tab-nav-button ${{currentActiveTab === 'sources' ? 'active' : ''}}" onclick="switchTab('sources', this)">
             <i data-lucide="link"></i> Sources (${{sources.length}})
@@ -1860,6 +1868,41 @@ Awaiting target organization number...
             </table>
           </div>
         ` : `<p style="color:var(--text-muted); padding:1rem;">No recent announcements filed in Foretaksregisteret.</p>`;
+      }} else if (currentActiveTab === 'news') {{
+        viewport.innerHTML = news.length ? `
+          <div class="terminal-table-container">
+            <table class="terminal-table">
+              <thead><tr><th>Published Date</th><th>Headline</th><th>Article Link</th><th>Claim ID</th></tr></thead>
+              <tbody>
+                ${{news.map(n => `
+                  <tr>
+                    <td style="font-family:'JetBrains Mono'; color:#38bdf8;">${{n.published_date || 'N/A'}}</td>
+                    <td><b>${{n.title}}</b></td>
+                    <td><a href="${{n.url}}" target="_blank" style="color:var(--accent-cyan);"><i data-lucide="external-link"></i> Read</a></td>
+                    <td><span class="claim-interactive-chip">${{n.claim_id || '-'}}</span></td>
+                  </tr>
+                `).join('')}}
+              </tbody>
+            </table>
+          </div>
+        ` : `<p style="color:var(--text-muted); padding:1rem;">No verified, dated news articles found.</p>`;
+      }} else if (currentActiveTab === 'hiring') {{
+        viewport.innerHTML = hiring.length ? `
+          <div class="terminal-table-container">
+            <table class="terminal-table">
+              <thead><tr><th>Position Title</th><th>Direct Vacancy Link</th><th>Claim ID</th></tr></thead>
+              <tbody>
+                ${{hiring.map(h => `
+                  <tr>
+                    <td><b>${{h.title}}</b></td>
+                    <td><a href="${{h.url}}" target="_blank" style="color:var(--accent-cyan);"><i data-lucide="external-link"></i> Apply / View</a></td>
+                    <td><span class="claim-interactive-chip">${{h.claim_id || '-'}}</span></td>
+                  </tr>
+                `).join('')}}
+              </tbody>
+            </table>
+          </div>
+        ` : `<p style="color:var(--text-muted); padding:1rem;">No active individual job listings found.</p>`;
       }} else if (currentActiveTab === 'sources') {{
         viewport.innerHTML = `
           <div class="terminal-table-container">

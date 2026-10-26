@@ -165,3 +165,21 @@ class CitationValidator:
             "fully_compliant": invalid_count == 0,
             "errors": all_errors[:25],
         }
+
+
+if __name__ == "__main__":
+    import sys
+    target_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("profiles/profiles_1000.jsonl")
+    validator = CitationValidator()
+    result = validator.validate_batch_file(target_path)
+    print(f"Validation Target: {target_path}")
+    print(f"Total Envelopes:   {result['total_envelopes']}")
+    print(f"Valid Envelopes:   {result['valid_envelopes']}")
+    print(f"Invalid Envelopes: {result['invalid_envelopes']}")
+    print(f"Pass Rate:         {result['pass_rate_percentage']}%")
+    print(f"Fully Compliant:   {result['fully_compliant']}")
+    if result["errors"]:
+        print("\nErrors Found:")
+        for err in result["errors"]:
+            print(f"  Line {err['line']} (orgnr: {err['orgnr']}): {err['errors']}")
+    sys.exit(0 if result["fully_compliant"] else 1)

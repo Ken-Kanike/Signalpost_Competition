@@ -77,6 +77,14 @@ class SectionAnnouncements(BaseModel):
     reason: Optional[str] = None
 
 
+class SectionNews(BaseModel):
+    status: str = "available"
+    claims: list[dict[str, Any]] = Field(default_factory=list)
+    source_url: Optional[str] = None
+    retrieved_date: Optional[str] = None
+    reason: Optional[str] = None
+
+
 class DerivedSignal(BaseModel):
     value: Any
     description: Optional[str] = None
@@ -131,4 +139,5 @@ class RunReport(BaseModel):
     estimated_cost_usd: float = 0.0
     average_claims_per_envelope: float = 0.0
     average_sources_per_envelope: float = 0.0
+    section_completeness: dict[str, float] = Field(default_factory=dict)
     compliance_checks: dict[str, bool] = Field(default_factory=dict)

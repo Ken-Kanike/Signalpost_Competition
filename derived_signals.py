@@ -97,7 +97,27 @@ class DerivedSignalsEngine:
                 signals["workforce_scale"] = {
                     "value": emp_val,
                     "classification": scale_desc,
+                    "description": f"Workforce scale: {scale_desc}",
                     "based_on": [emp_obj["claim_id"]],
+                    "status": "available",
+                }
+
+        # 5. Debt-to-Equity Ratio (Leverage indicator)
+        debt_obj = account_claims.get("total_debt")
+        if debt_obj and equity_obj:
+            d_val = debt_obj.get("value")
+            e_val = equity_obj.get("value")
+            if (
+                isinstance(d_val, (int, float))
+                and isinstance(e_val, (int, float))
+                and e_val > 0
+            ):
+                ratio = d_val / e_val
+                signals["debt_to_equity"] = {
+                    "value": round(ratio, 2),
+                    "ratio": f"{ratio:.2f}x",
+                    "description": f"Debt-to-equity leverage ratio of {ratio:.2f}x",
+                    "based_on": [debt_obj["claim_id"], equity_obj["claim_id"]],
                     "status": "available",
                 }
 
