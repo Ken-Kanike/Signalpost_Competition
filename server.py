@@ -237,7 +237,22 @@ async def serve_dashboard():
 
 
 if __name__ == "__main__":
+    import asyncio
     import uvicorn
 
-    port = int(os.getenv("PORT", "8000"))
-    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+    raw_port = os.getenv("PORT")
+    target_ports = {8000, 8080}
+    if raw_port:
+        try:
+            target_ports.add(int(raw_port))
+        except ValueError:
+            pass
+
+    async def _run_all_ports():
+        servers = [
+            uvicorn.Server(uvicorn.Config(app, host="0.0.0.0", port=p, log_level="info")).serve()
+            for p in sorted(target_ports)
+        ]
+        await asyncio.gather(*servers)
+
+    asyncio.run(_run_all_ports())

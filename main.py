@@ -332,9 +332,27 @@ if __name__ == "__main__":
     # If launched in cloud environments (Railway, Render, Fly.io) without subcommands,
     # automatically launch the FastAPI live terminal server.
     if len(sys.argv) == 1 and (os.getenv("PORT") or os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("DYNO")):
+        import asyncio
         import uvicorn
-        port = int(os.getenv("PORT", "8000"))
-        logger.info(f"Auto-starting Signalpost API server on port {port} for cloud deployment...")
-        uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+        from server import app
+
+        raw_port = os.getenv("PORT")
+        target_ports = {8000, 8080}
+        if raw_port:
+            try:
+                target_ports.add(int(raw_port))
+            except ValueError:
+                pass
+
+        logger.info(f"Auto-starting Signalpost API server on ports {sorted(target_ports)} for cloud deployment...")
+
+        async def _run_all_ports():
+            servers = [
+                uvicorn.Server(uvicorn.Config(app, host="0.0.0.0", port=p, log_level="info")).serve()
+                for p in sorted(target_ports)
+            ]
+            await asyncio.gather(*servers)
+
+        asyncio.run(_run_all_ports())
     else:
         cli()
