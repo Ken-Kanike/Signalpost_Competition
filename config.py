@@ -38,6 +38,7 @@ class AgentConfig(BaseModel):
     # and web calls are only attempted when budget allows via dynamic cap.
     default_per_company_cap: int = 14
     min_per_company_cap: int = 2
+    min_cap: int = 2  # Alias used by Orchestrator budget tracker initialization
     max_execution_minutes: int = 45
     per_host_min_interval_sec: float = Field(
         default_factory=lambda: float(os.getenv("PER_HOST_MIN_INTERVAL_SEC", "0.2"))
