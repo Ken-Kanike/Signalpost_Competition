@@ -20,7 +20,7 @@
 - **Live Cloud REST API & Agent Backend (Railway):** [https://signalpostcompetition-production.up.railway.app/](https://signalpostcompetition-production.up.railway.app/)
 - **Production Health & Quota Telemetry:** [https://signalpostcompetition-production.up.railway.app/api/health](https://signalpostcompetition-production.up.railway.app/api/health)
 - **Source Repository:** [https://github.com/Ken-Kanike/Signalpost_Competition](https://github.com/Ken-Kanike/Signalpost_Competition)
-- **Verified Deliverable Commit:** [`9a907ea99dc975b9f9e2f69ce83d1c9ad90e6378`](https://github.com/Ken-Kanike/Signalpost_Competition/commit/9a907ea99dc975b9f9e2f69ce83d1c9ad90e6378)
+- **Verified Deliverable Commits:** [https://github.com/Ken-Kanike/Signalpost_Competition/commits/main](https://github.com/Ken-Kanike/Signalpost_Competition/commits/main)
 
 ---
 
@@ -446,9 +446,7 @@ In accordance with the official challenge deliverables requirements:
    [https://ken-kanike.github.io/Signalpost_Competition/](https://ken-kanike.github.io/Signalpost_Competition/)
 4. **Live Production API & Cloud Backend (Railway)**:  
    [https://signalpostcompetition-production.up.railway.app/](https://signalpostcompetition-production.up.railway.app/)
-5. **Exact Verified Commit Hash & URL**:  
-   - **Commit Hash:** `9a907ea99dc975b9f9e2f69ce83d1c9ad90e6378`
-   - **Commit URL:** [https://github.com/Ken-Kanike/Signalpost_Competition/commit/9a907ea99dc975b9f9e2f69ce83d1c9ad90e6378](https://github.com/Ken-Kanike/Signalpost_Competition/commit/9a907ea99dc975b9f9e2f69ce83d1c9ad90e6378)
+   - **Commits Feed:** [https://github.com/Ken-Kanike/Signalpost_Competition/commits/main](https://github.com/Ken-Kanike/Signalpost_Competition/commits/main)
 6. **One command to run it**:  
    ```bash
    ./run.sh profiles/targets_1000.jsonl output
