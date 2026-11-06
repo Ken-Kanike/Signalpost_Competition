@@ -166,12 +166,15 @@ class WebsiteVerifier:
                                 final_url = str(resp.url)
                                 html = await resp.text(errors="replace")
                                 ownership = self._check_site_ownership(html, clean_org, company_name)
-                                if ownership != "parent_group":
-                                    # Registry-listed + not a parent group = accept
+                                club_mismatch = self._is_club_or_association_mismatch(html, orgform_code)
+                                if ownership in ("confirmed", "name_match") and not club_mismatch:
+                                    # Registry-listed + name/orgnr match + no location conflict = accept
                                     result = {
                                         "status": "available",
                                         "verification_method": "tier0_brreg_registered",
                                         "official_website": self._clean_final_url(final_url),
+                                        "source_url": self._clean_final_url(final_url),
+                                        "status_code": resp.status,
                                         "html": html,
                                         "reason": (
                                             f"URL registered directly in Brønnøysund Enhetsregisteret "
@@ -180,7 +183,11 @@ class WebsiteVerifier:
                                     }
                                     self._maybe_save_fixture(clean_org, result)
                                     return result
-                                # If parent_group: fall through to remaining candidates
+                                logger.debug(
+                                    f"Tier-0 candidate rejected for {clean_org}: "
+                                    f"ownership={ownership}, location_ok={location_ok}"
+                                )
+                                # Fall through to remaining candidates
                     except Exception as e:
                         logger.debug(f"Tier-0 hjemmeside check failed for {clean_org}: {e}")
 
@@ -211,6 +218,8 @@ class WebsiteVerifier:
                             "status": "available",
                             "verification_method": "tier1_orgnr_in_html",
                             "official_website": self._clean_final_url(final_url),
+                            "source_url": self._clean_final_url(final_url),
+                            "status_code": resp.status,
                             "html": html,
                             "reason": f"Organization number {clean_org} verified in page source",
                         }
@@ -232,10 +241,18 @@ class WebsiteVerifier:
                             )
                             continue
                         elif ownership in ("confirmed", "name_match"):
+                            if not self._check_location_compatible(
+                                html, registered_city, registered_municipality, registered_postal
+                            ):
+                                continue
+                            if self._is_club_or_association_mismatch(html, orgform_code):
+                                continue
                             result = {
                                 "status": "available",
                                 "verification_method": "tier2_registry_listed",
                                 "official_website": self._clean_final_url(final_url),
+                                "source_url": self._clean_final_url(final_url),
+                                "status_code": resp.status,
                                 "html": html,
                                 "reason": f"Website listed directly in Brønnøysund Enhetsregisteret ({ownership})",
                             }
@@ -257,6 +274,8 @@ class WebsiteVerifier:
                             "status": "available",
                             "verification_method": "tier3_name_proven",
                             "official_website": self._clean_final_url(final_url),
+                            "source_url": self._clean_final_url(final_url),
+                            "status_code": resp.status,
                             "html": html,
                             "reason": "High-confidence distinctive name and location match without conflicting orgnr",
                         }

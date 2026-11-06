@@ -44,6 +44,8 @@ class TestServerEndpoints(unittest.TestCase):
                         "legal_name": {
                             "value": "EQUINOR ASA",
                             "claim_id": "c001",
+                            "source_url": "https://data.brreg.no/enhetsregisteret/api/enheter/923609016",
+                            "retrieved_date": "2026-10-26",
                             "status": "available",
                         }
                     },

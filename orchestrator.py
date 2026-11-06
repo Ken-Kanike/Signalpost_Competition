@@ -145,18 +145,39 @@ class Orchestrator:
             )
         else:
             registry_site, _ = self.verifier.extract_candidates_from_registry(enhet_data)
-            website_verification_res = {
-                "status": "not_available",
-                "verification_method": "skipped_budget_cap",
-                "official_website": registry_site,
-                "reason": "Website active HTTP probe skipped due to request budget cap",
-            }
+            registry_site = self.verifier._normalize_url(registry_site) if registry_site else None
+            enhet_url = enhet_res.get("url") or f"{self.config.brreg_enheter_url}/{clean_org}"
+            if registry_site:
+                website_verification_res = {
+                    "status": "available",
+                    "verification_method": "registry_listed",
+                    "official_website": registry_site,
+                    "source_url": enhet_url,
+                    "status_code": enhet_res.get("status_code", 200),
+                    "reason": (
+                        "Website listed on the BRREG entity record; HTTP fetch/verification "
+                        "was skipped to stay within the 2,000-request budget"
+                    ),
+                }
+            else:
+                website_verification_res = {
+                    "status": "not_available",
+                    "verification_method": "not_verified",
+                    "official_website": None,
+                    "source_url": enhet_url,
+                    "status_code": enhet_res.get("status_code", 200),
+                    "reason": (
+                        "No website listed on the BRREG entity record; HTTP discovery "
+                        "was skipped to stay within the 2,000-request budget"
+                    ),
+                }
 
-        # 3. Stage 3: Web Enrichment (Only on verified sites)
+        # 3. Stage 3: Web Enrichment (only on HTTP-verified sites)
         web_enrichment_res: dict[str, Any] = {}
         jobs_res: dict[str, Any] = {}
         news_res: dict[str, Any] = {}
-        if website_verification_res.get("status") == "available":
+        is_registry_listed = website_verification_res.get("verification_method") == "registry_listed"
+        if website_verification_res.get("status") == "available" and not is_registry_listed:
             verified_url = website_verification_res.get("official_website")
             prefetched_html = website_verification_res.get("html")
             web_enrichment_res = await self.web_enricher.enrich_from_website(
@@ -187,15 +208,22 @@ class Orchestrator:
                 "contact_email": None,
                 "contact_phone": None,
             }
+            if is_registry_listed:
+                skipped_reason = (
+                    "Registry-listed website only; deep research is required for "
+                    "social, careers, and news verification"
+                )
+            else:
+                skipped_reason = "No HTTP-verified website, skipping careers and news collection"
             jobs_res = {
                 "status": "not_available",
                 "claims": [],
-                "reason": "Website not verified, skipping careers scraping",
+                "reason": skipped_reason,
             }
             news_res = {
                 "status": "not_available",
                 "claims": [],
-                "reason": "Website not verified, skipping news collection",
+                "reason": skipped_reason,
             }
 
         # 4. Stage 4: Kunngjøringer (Official corporate announcements)
@@ -292,6 +320,13 @@ class Orchestrator:
         total_sources_count = 0
         success_count = 0
         fail_count = 0
+        registry_listed_websites = 0
+        http_verified_websites = 0
+        profiles_with_announcements = 0
+        profiles_with_social_links = 0
+        profiles_with_news = 0
+        profiles_with_hiring = 0
+        source_status_counts: dict[str, int] = {}
 
         section_availability_counts = {
             "legal_identity": 0,
@@ -321,6 +356,9 @@ class Orchestrator:
 
                 async def _worker(orgnr: str, idx: int):
                     nonlocal success_count, fail_count, total_claims_count, total_sources_count
+                    nonlocal registry_listed_websites, http_verified_websites
+                    nonlocal profiles_with_announcements, profiles_with_social_links
+                    nonlocal profiles_with_news, profiles_with_hiring
                     async with semaphore:
                         remaining = total_companies - idx
                         env = await self.process_company(session, orgnr, remaining)
@@ -333,23 +371,53 @@ class Orchestrator:
 
                         if env.status == "available":
                             success_count += 1
-                            # Count claims
-                            for sec in env.sections.values():
-                                if isinstance(sec, dict):
-                                    claims = sec.get("claims")
-                                    if isinstance(claims, dict):
-                                        total_claims_count += len(claims)
-                                    elif isinstance(claims, list):
-                                        total_claims_count += len(claims)
+                            # Count claims, including website/social claims that are not
+                            # stored under a conventional "claims" container.
+                            for sec_name, sec in env.sections.items():
+                                if not isinstance(sec, dict):
+                                    continue
+                                claims = sec.get("claims")
+                                if isinstance(claims, dict):
+                                    total_claims_count += len(claims)
+                                elif isinstance(claims, list):
+                                    total_claims_count += len(claims)
+                                if sec_name == "website":
+                                    if not claims and sec.get("claim_id"):
+                                        total_claims_count += 1
+                                    total_claims_count += len(sec.get("social_claims", []) or [])
                             total_sources_count += len(env.sources)
+
+                            for source in env.sources:
+                                status = source.status_code
+                                key = str(status) if status is not None else "unknown"
+                                source_status_counts[key] = source_status_counts.get(key, 0) + 1
 
                             # Track section availability
                             for sec_k in section_availability_counts:
                                 sec_data = env.sections.get(sec_k, {})
                                 if isinstance(sec_data, dict) and sec_data.get("status") == "available":
                                     section_availability_counts[sec_k] += 1
+
+                            website = env.sections.get("website", {})
+                            if isinstance(website, dict) and website.get("status") == "available":
+                                if website.get("verification_method") == "registry_listed":
+                                    registry_listed_websites += 1
+                                else:
+                                    http_verified_websites += 1
+                            if (env.sections.get("announcements", {}) or {}).get("status") == "available":
+                                profiles_with_announcements += 1
+                            if website.get("social_profiles"):
+                                profiles_with_social_links += 1
+                            if (env.sections.get("news", {}) or {}).get("status") == "available":
+                                profiles_with_news += 1
+                            if (env.sections.get("hiring", {}) or {}).get("status") == "available":
+                                profiles_with_hiring += 1
                         else:
                             fail_count += 1
+                            for source in env.sources:
+                                status = source.status_code
+                                key = str(status) if status is not None else "unknown"
+                                source_status_counts[key] = source_status_counts.get(key, 0) + 1
 
                         progress.advance(task_id)
 
@@ -393,6 +461,13 @@ class Orchestrator:
             average_claims_per_envelope=round(avg_claims, 1),
             average_sources_per_envelope=round(avg_sources, 1),
             section_completeness=section_completeness,
+            source_status_counts=source_status_counts,
+            registry_listed_websites=registry_listed_websites,
+            http_verified_websites=http_verified_websites,
+            profiles_with_announcements=profiles_with_announcements,
+            profiles_with_social_links=profiles_with_social_links,
+            profiles_with_news=profiles_with_news,
+            profiles_with_hiring=profiles_with_hiring,
             compliance_checks={
                 "within_2000_request_limit": self.budget_tracker.total_requests_made <= 2000,
                 "within_45_minute_limit": duration <= (45 * 60),

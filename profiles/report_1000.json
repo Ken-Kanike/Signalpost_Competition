@@ -3,20 +3,29 @@
   "successful_envelopes": 1000,
   "failed_envelopes": 0,
   "total_outbound_requests": 2000,
-  "total_duration_seconds": 214.06,
+  "total_duration_seconds": 208.17,
   "estimated_cost_usd": 0.0,
-  "average_claims_per_envelope": 12.0,
+  "average_claims_per_envelope": 12.6,
   "average_sources_per_envelope": 2.0,
   "section_completeness": {
     "legal_identity": 100.0,
     "annual_accounts": 0.0,
-    "leadership": 97.6,
+    "leadership": 97.5,
     "workplaces": 0.0,
-    "website": 0.0,
+    "website": 10.4,
     "hiring": 0.0,
     "announcements": 0.0,
     "news": 0.0
   },
+  "source_status_counts": {
+    "200": 1975
+  },
+  "registry_listed_websites": 104,
+  "http_verified_websites": 0,
+  "profiles_with_announcements": 0,
+  "profiles_with_social_links": 0,
+  "profiles_with_news": 0,
+  "profiles_with_hiring": 0,
   "compliance_checks": {
     "within_2000_request_limit": true,
     "within_45_minute_limit": true,

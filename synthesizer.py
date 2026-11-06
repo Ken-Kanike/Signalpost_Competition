@@ -95,9 +95,9 @@ class Synthesizer:
             if form_obj and form_obj.get("value"):
                 form_code = form_obj.get("value")
                 form_desc = form_obj.get("description", form_code)
-                s1_parts.append(f"is a Norwegian {form_desc} ({form_code}) {track(form_obj.get('claim_id'))}")
+                s1_parts.append(f"is registered as {form_desc} ({form_code}) {track(form_obj.get('claim_id'))}")
             else:
-                s1_parts.append("is a registered Norwegian enterprise")
+                s1_parts.append("is registered in Enhetsregisteret")
 
             if addr_obj and addr_obj.get("value"):
                 addr = addr_obj["value"]
@@ -119,11 +119,35 @@ class Synthesizer:
         emp_obj = legal.get("employee_count")
         if emp_obj:
             emp_count = emp_obj.get("value")
+            emp_cid = track(emp_obj.get("claim_id"))
             if isinstance(emp_count, (int, float)) and emp_count > 0:
-                emp_phrase = f"The organization employs approximately {int(emp_count):,} registered workers {track(emp_obj.get('claim_id'))}"
+                emp_phrase = f"The organization employs approximately {int(emp_count):,} registered workers {emp_cid}"
                 if workplaces:
-                    emp_phrase += f" across {len(workplaces)} active branch workplaces {track(workplaces[0].get('claim_id'))}"
+                    emp_phrase += f"; registered branch workplaces are on file {track(workplaces[0].get('claim_id'))}"
                 sentences.append(emp_phrase + ".")
+            elif emp_obj.get("status") in ("not_applicable", "unknown"):
+                reason = emp_obj.get("description") or "Employee count is not disclosed in Enhetsregisteret"
+                sentences.append(f"{reason} {emp_cid}.")
+            elif emp_count == 0:
+                sentences.append(f"Zero employees are registered in Enhetsregisteret {emp_cid}.")
+
+        # Registered insolvency/liquidation flags
+        bankrupt_obj = legal.get("is_bankrupt")
+        liquidation_obj = legal.get("is_under_liquidation")
+        if bankrupt_obj or liquidation_obj:
+            if (
+                bankrupt_obj
+                and bankrupt_obj.get("value")
+            ) or (
+                liquidation_obj
+                and liquidation_obj.get("value")
+            ):
+                flags = []
+                if bankrupt_obj and bankrupt_obj.get("value"):
+                    flags.append(f"bankruptcy is registered {track(bankrupt_obj.get('claim_id'))}")
+                if liquidation_obj and liquidation_obj.get("value"):
+                    flags.append(f"liquidation proceedings are registered {track(liquidation_obj.get('claim_id'))}")
+                sentences.append("Enhetsregisteret records that " + " and ".join(flags) + ".")
 
         # Sentence 3: Financials and Derived Signals
         rev_obj = account_claims.get("revenue")
@@ -148,7 +172,12 @@ class Synthesizer:
             # Attach derived revenue signal if present
             yoy_sig = derived_signals.get("yoy_revenue_change")
             if yoy_sig:
-                fin_parts.append(f"reflecting {yoy_sig.get('description', '').lower()}")
+                yoy_citations = " ".join(
+                    f"[{bid}]" for bid in yoy_sig.get("based_on", []) if bid
+                )
+                fin_parts.append(
+                    f"reflecting {yoy_sig.get('description', '').lower()} {yoy_citations}".rstrip()
+                )
                 for bid in yoy_sig.get("based_on", []):
                     track(bid)
 
@@ -170,14 +199,23 @@ class Synthesizer:
         site_url = website.get("official_website")
         site_cid = website.get("claim_id")
         if site_url:
-            v_method = website.get("verification_method", "verified")
-            sentences.append(
-                f"Official online presence is maintained at {site_url} {track(site_cid)} (verified via {v_method})."
-            )
+            v_method = website.get("verification_method", "not_verified")
+            if v_method == "registry_listed":
+                sentences.append(
+                    f"A website is listed in the BRREG entity record at {site_url} "
+                    f"{track(site_cid)} (registry listing; not independently HTTP-verified)."
+                )
+            else:
+                sentences.append(
+                    f"Official online presence is maintained at {site_url} "
+                    f"{track(site_cid)} (verification method: {v_method})."
+                )
 
         # Fallback if bare minimum
         if not sentences:
-            sentences.append(f"Profile compiled for Norwegian organisation number {orgnr}.")
+            sentences.append(
+                f"No sourced registry claims were available for organisation number {orgnr}."
+            )
 
         full_text = " ".join(sentences)
         return Synthesis(

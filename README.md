@@ -4,10 +4,11 @@
 [![Railway Deployed](https://img.shields.io/badge/Railway%20API-Online%20(Production)-brightgreen.svg)](https://signalpostcompetition-production.up.railway.app/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/Tests-25%2F25%20Passing-brightgreen.svg)]()
+[![Build Status](https://img.shields.io/badge/Tests-29%2F29%20Passing-brightgreen.svg)]()
 [![Modulo 11](https://img.shields.io/badge/Norwegian%20Orgnr-Modulo%2011%20Verified-success.svg)]()
 [![Evidence Compliance](https://img.shields.io/badge/Citation%20Validator-100%25%20Pass-success.svg)]()
 [![Quota Compliance](https://img.shields.io/badge/Daily%20Requests-2%2C000%20(100%25%20Compliant)-blue.svg)]()
+[![JBOX Bonus](https://img.shields.io/badge/%24500%20JBOX%20Bonus-Eligible%20(Best%20UX)-gold.svg)]()
 [![Runtime Cost](https://img.shields.io/badge/Runtime%20Cost-%240.0000%20(Zero%20Token%20Cost)-blueviolet.svg)]()
 
 > **Official Submission for the Builderr Signalpost Challenge**  
@@ -272,7 +273,7 @@ Scrapes BRREG's official Kunngjøringer register (`w2.brreg.no/kunngjoring`) to 
 | **Daily Run Time** | $\le 45$ minutes | Async concurrency (15 workers) | **214.06 seconds (~3.5 min)** | ✅ PASS |
 | **Declared Run Costs** | $\le \$10.00$ USD | Deterministic template synthesizer | **$0.0000 USD** | ✅ PASS |
 | **Entity Precision** | No wrong entities | 3-tier verification + Modulo 11 check | **100.0% Modulo 11 Validated** | ✅ PASS |
-| **Citation Evidence** | 100% claim-backed | Automated CitationValidator audit | **1,000 / 1,000 (100.0% Pass)** | ✅ PASS |
+| **Citation Evidence** | 100% claim-backed | Automated CitationValidator audit | **1,000 / 1,000 baseline envelopes (100.0% Pass)** | ✅ PASS |
 | **Minimum Profiles** | $\ge 1,000$ profiles | Generated via BRREG pagination | **1,000 profiles delivered** | ✅ PASS |
 
 ---
@@ -367,6 +368,10 @@ Directly deploys as a cloud container web service using standard Python `require
 | Audit / Reviewer Item | Root Cause | Implemented Resolution | Verified In Code & Tests |
 |---|---|---|---|
 | **Parent Group / Brand Domain Isolation** | Candidate websites from group holdings attributed parent data to subsidiaries | Implemented 3-Tier check: requires 9-digit orgnr or exact company name on page. Foreign org numbers flag parent groups and block downstream scraping. | [`website_verifier.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/website_verifier.py), [`test_reviewer_fixes.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/tests/test_reviewer_fixes.py) |
+| **City/Town Location Disambiguation (`bql.no`)** | `bql.no` was Bergen Quiltelag (a club in Bergen), whereas BQL AS is in Oslo. | Added `_check_location_compatible` and `_is_club_or_association_mismatch` in `website_verifier.py` to cross-check municipality/postal codes and reject clubs. | [`website_verifier.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/website_verifier.py), [`test_reviewer_fixes.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/tests/test_reviewer_fixes.py) |
+| **Foreign Entity (NUF) & Placeholder NACE Cleanup** | 'No registered employees' was emitted for foreign entities with 0 BRREG count; 'Uoppgitt (NACE 00.000)' was passed through | Flagged foreign zero counts as `not_applicable` ("Unregistered in Norway") and filtered out placeholder NACE `00.000` / `Uoppgitt` from claims and synthesis. | [`normalizer.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/normalizer.py), [`synthesizer.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/synthesizer.py) |
+| **Responsive Mobile Layout & Clean-Start Fix** | Viewer used fixed `100vh` with no phone layout; hosted copy showed 0 companies on uninitialized start | Rewrote CSS with mobile media queries (`@media (max-width: 768px)`), embedded full 1,000 profile bundle, and fixed template escaping. | [`viewer_generator.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/viewer_generator.py), [`index.html`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/index.html) |
+| **$500 JBOX UX: Company Comparison & Source Inspector** | Competition bonus for best UX on laptop and phone (find company, compare two, check a source) | Added dedicated `Compare (2)` side-by-side mode and interactive `[cXXX]` Source Inspector modal displaying exact provenance, HTTP status, and backed claims. | [`viewer_generator.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/viewer_generator.py), [`index.html`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/index.html) |
 | **Social Media Handle Token Matching** | Footer links to web agencies, CMS themes, or parent groups were published | Added token matching: extracted handles must match normalized legal name tokens. Agency and theme accounts are discarded. | [`web_enricher.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/collectors/web_enricher.py), [`test_reviewer_fixes.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/tests/test_reviewer_fixes.py) |
 | **Strict News Publication Datetime** | Menu labels and undated product pages were collected as news; `<modified>` treated as published | Enforced strict publication datetime validation (`<time datetime="...">`, schema.org `datePublished`). Discarded undated pages and menu items. | [`news_collector.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/collectors/news_collector.py), [`test_reviewer_fixes.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/tests/test_reviewer_fixes.py) |
 | **Single-Vacancy Job Ads & Portal Shield** | Aggregators (`bygg.no`) and general careers index pages were included | Enforced 5 strict job vacancy rules: single job title context required; blocked aggregator domains and generic navigation labels. | [`jobs_collector.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/collectors/jobs_collector.py), [`test_reviewer_fixes.py`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/tests/test_reviewer_fixes.py) |
@@ -421,8 +426,8 @@ Signalpost_hackathon/
 ├── output/                     # Generated output artifacts (envelopes.jsonl, report.json, viewer.html)
 ├── profiles/                   # Pre-compiled target batches
 │   ├── targets_1000.jsonl      # 1,000 active Norwegian company numbers from BRREG
-│   ├── profiles_1000.jsonl     # 1,000 fully verified company envelopes (100% compliant)
-│   ├── report_1000.json        # Execution report: 2,000 requests, 214s duration, $0.00 cost
+│   ├── profiles_1000.jsonl     # 1,000 baseline company envelopes (legal identity, leadership, registry-listed website; 100% citation-validated)
+│   ├── report_1000.json        # Execution report: 2,000 requests, ~208s duration, $0.00 cost
 │   └── viewer_1000.html        # Interactive offline terminal viewer
 │
 ├── run.sh                      # One-command execution script for Linux/macOS
@@ -439,7 +444,7 @@ Signalpost_hackathon/
 In accordance with the official challenge deliverables requirements:
 
 1. **At least 1,000 company profiles**:  
-   Target batch of 1,000 active Norwegian companies pre-compiled in [`profiles/targets_1000.jsonl`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/profiles/targets_1000.jsonl) and full verified envelopes in [`profiles/profiles_1000.jsonl`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/profiles/profiles_1000.jsonl).
+   Target batch of 1,000 active Norwegian companies pre-compiled in [`profiles/targets_1000.jsonl`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/profiles/targets_1000.jsonl) and baseline verified envelopes in [`profiles/profiles_1000.jsonl`](file:///c:/Users/junai/Desktop/Signalpost_hackathon/profiles/profiles_1000.jsonl) (100% citation-validated; news/hiring/social deep verification remains on-demand).
 2. **Repository link**:  
    [https://github.com/Ken-Kanike/Signalpost_Competition](https://github.com/Ken-Kanike/Signalpost_Competition)
 3. **Live Deployed Terminal (GitHub Pages)**:  
@@ -447,15 +452,15 @@ In accordance with the official challenge deliverables requirements:
 4. **Live Production API & Cloud Backend (Railway)**:  
    [https://signalpostcompetition-production.up.railway.app/](https://signalpostcompetition-production.up.railway.app/)
    - **Commits Feed:** [https://github.com/Ken-Kanike/Signalpost_Competition/commits/main](https://github.com/Ken-Kanike/Signalpost_Competition/commits/main)
-6. **One command to run it**:  
+5. **One command to run it**:  
    ```bash
    ./run.sh profiles/targets_1000.jsonl output
    ```
-7. **Model / API Details**:  
+6. **Model / API Details**:  
    - **Primary Registry APIs**: Brønnøysundregistrene Open APIs (`data.brreg.no` and `w2.brreg.no`) — completely free, open public registers.
    - **Synthesis Engine**: Deterministic Template Synthesizer (default, 100% grounded, $0 cost).
    - **Optional Multi-Provider AI Mode**: Configurable via Web Settings or CLI: OpenAI (`gpt-4o-mini`), Groq (`llama-3.3-70b-versatile`), Anthropic (`claude-3-5-sonnet`), OpenRouter, and Ollama.
-8. **Expected Run Costs**:  
+7. **Expected Run Costs**:  
    - **Default Execution Cost**: **$0.0000 USD** (0 tokens, pure algorithmic synthesis with complete claim audit trail).
    - **Optional LLM Mode**: **~$0.02 USD** per 100 companies (well within the $10.00 daily limit).
 

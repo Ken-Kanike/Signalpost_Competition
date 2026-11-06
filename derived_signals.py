@@ -31,11 +31,16 @@ class DerivedSignalsEngine:
             ):
                 pct_change = (curr_val - prev_val) / prev_val
                 pct_formatted = round(pct_change * 100, 1)
-                direction = "increased" if pct_change > 0 else "decreased"
+                if pct_change > 0:
+                    description = f"Annual revenue increased by {abs(pct_formatted)}% year-over-year"
+                elif pct_change < 0:
+                    description = f"Annual revenue decreased by {abs(pct_formatted)}% year-over-year"
+                else:
+                    description = "Annual revenue unchanged year-over-year (0.0%)"
                 signals["yoy_revenue_change"] = {
                     "value": round(pct_change, 4),
                     "percentage": f"{pct_formatted}%",
-                    "description": f"Annual revenue {direction} by {abs(pct_formatted)}% year-over-year",
+                    "description": description,
                     "based_on": [curr_rev_obj["claim_id"], prev_rev_obj["claim_id"]],
                     "status": "available",
                 }
@@ -49,9 +54,9 @@ class DerivedSignalsEngine:
                 signals["negative_equity"] = {
                     "value": is_negative,
                     "description": (
-                        "Negative equity detected, potential balance sheet insolvency risk"
+                        "Negative equity reported; potential balance sheet insolvency risk"
                         if is_negative
-                        else "Solvent equity reserves reported"
+                        else "Reported equity is non-negative (not a solvency guarantee)"
                     ),
                     "based_on": [equity_obj["claim_id"]],
                     "status": "available",
@@ -82,13 +87,20 @@ class DerivedSignalsEngine:
         emp_obj = legal_claims.get("employee_count")
         if emp_obj:
             emp_val = emp_obj.get("value")
+            legal_form = (legal_claims.get("legal_form", {}).get("value") or "").upper()
             if emp_obj.get("status") == "not_applicable" or emp_val is None:
+                if legal_form in ("NUF", "UTLA", "UTL"):
+                    classification = "Not reported in Norway (foreign entity / branch)"
+                elif legal_form == "FLI":
+                    classification = "Not applicable (association / FLI)"
+                else:
+                    classification = "Not disclosed in Enhetsregisteret"
                 signals["workforce_scale"] = {
                     "value": None,
-                    "classification": "Not publicly registered (foreign / branch entity)",
-                    "description": "Workforce scale: Unspecified / foreign registry",
+                    "classification": classification,
+                    "description": f"Workforce scale: {classification}",
                     "based_on": [emp_obj["claim_id"]],
-                    "status": "not_applicable",
+                    "status": emp_obj.get("status", "unknown"),
                 }
             elif isinstance(emp_val, int):
                 scale_desc = (
@@ -100,7 +112,7 @@ class DerivedSignalsEngine:
                     if emp_val >= 10
                     else "Micro business (1-9 employees)"
                     if emp_val > 0
-                    else "Unspecified / Zero registered in Norway"
+                    else "Zero employees registered (may be unreported)"
                 )
                 signals["workforce_scale"] = {
                     "value": emp_val,

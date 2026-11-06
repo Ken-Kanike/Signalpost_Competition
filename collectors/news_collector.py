@@ -102,17 +102,21 @@ class NewsCollector:
             }
 
         # Stage 1: Try RSS/Atom/WP-JSON feed paths
-        rss_articles = await self._try_rss_feeds(session, verified_url, max_items, company_name)
+        rss_articles, feed_url, feed_status = await self._try_rss_feeds(
+            session, verified_url, max_items, company_name
+        )
         if rss_articles:
             return {
                 "status": "available",
                 "claims": rss_articles,
-                "source_url": verified_url,
-                "reason": f"Discovered {len(rss_articles)} articles from RSS/Atom feed",
+                "source_url": feed_url or verified_url,
+                "status_code": feed_status or 200,
+                "reason": f"Discovered {len(rss_articles)} articles from an official feed",
             }
 
         # Stage 2: Fallback to HTML <time datetime> scraping
         html = prefetched_html
+        html_status = 200 if prefetched_html else None
         if not html:
             if self.budget_tracker and not await self.budget_tracker.record_request():
                 return {
@@ -130,6 +134,7 @@ class NewsCollector:
                 ) as resp:
                     if resp.status == 200:
                         html = await resp.text(errors="replace")
+                        html_status = resp.status
             except Exception as e:
                 logger.debug(f"Failed to fetch homepage for news: {e}")
 
@@ -138,20 +143,26 @@ class NewsCollector:
                 "status": "not_available",
                 "claims": [],
                 "source_url": verified_url,
+                "status_code": html_status,
                 "reason": "Could not retrieve website HTML",
             }
 
         articles = self._parse_news_from_html(html, verified_url, max_items, company_name)
+        for article in articles:
+            # The article link came from the verified site page; the fetched page is
+            # the evidence source, not the un-fetched article URL.
+            article["source_url"] = verified_url
         return {
             "status": "available" if articles else "not_available",
             "claims": articles,
             "source_url": verified_url,
+            "status_code": html_status,
             "reason": "" if articles else "No dated news articles with explicit timestamps identified",
         }
 
     async def _try_rss_feeds(
         self, session: aiohttp.ClientSession, base_url: str, max_items: int, company_name: str = ""
-    ) -> list[dict[str, str]]:
+    ) -> tuple[list[dict[str, str]], Optional[str], Optional[int]]:
         """Probe common RSS/Atom feed paths. Returns articles on first successful feed found."""
         base_domain = urlparse(base_url).netloc.lower().replace("www.", "")
 
@@ -195,18 +206,20 @@ class NewsCollector:
                     if not is_feed:
                         continue
 
-                    articles = self._parse_feed(text, base_url, base_domain, max_items, company_name)
+                    articles = self._parse_feed(
+                        text, base_url, base_domain, max_items, company_name, feed_url
+                    )
                     if articles:
                         logger.debug(
                             f"RSS feed found at {feed_url}: {len(articles)} articles"
                         )
-                        return articles
+                        return articles, feed_url, resp.status
 
             except Exception as e:
                 logger.debug(f"RSS probe failed {feed_url}: {e}")
                 continue
 
-        return []
+        return [], None, None
 
     def _matches_company_name(self, text: str, company_name: str) -> bool:
         """Check if article text or headline is connected to company (or allow if company name not provided)."""
@@ -227,6 +240,7 @@ class NewsCollector:
         base_domain: str,
         max_items: int,
         company_name: str = "",
+        feed_url: Optional[str] = None,
     ) -> list[dict[str, str]]:
         """Parse RSS, Atom, or WordPress JSON feed content into article dicts."""
         articles: list[dict[str, str]] = []
@@ -250,13 +264,23 @@ class NewsCollector:
                         if iso_date and link and 15 <= len(clean_title) <= 200:
                             parsed = urlparse(link)
                             link_domain = parsed.netloc.lower().replace("www.", "")
+                            excerpt = post.get("excerpt", "")
+                            if isinstance(excerpt, dict):
+                                excerpt = excerpt.get("rendered", "")
                             if link_domain == base_domain or not link_domain:
-                                if clean_title.lower() not in self.GENERIC_TITLES:
+                                if (
+                                    clean_title.lower() not in self.GENERIC_TITLES
+                                    and self._matches_company_name(
+                                        f"{clean_title} {excerpt}",
+                                        company_name,
+                                    )
+                                ):
                                     articles.append(
                                         {
                                             "title": clean_title,
                                             "url": link,
                                             "published_date": iso_date,
+                                            "source_url": feed_url or base_url,
                                         }
                                     )
                         if len(articles) >= max_items:
@@ -275,20 +299,30 @@ class NewsCollector:
                 for entry in entries:
                     t_tag = entry.find("title")
                     l_tag = entry.find("link")
-                    d_tag = entry.find("published") or entry.find("updated")
+                    d_tag = entry.find("published")
                     if not (t_tag and l_tag and d_tag):
                         continue
                     link_href = l_tag.get("href") or l_tag.get_text()
                     iso_date = self._parse_iso_date(d_tag.get_text(strip=True))
                     clean_title = normalize_norwegian_text(t_tag.get_text(strip=True))
+                    summary_tag = entry.find("summary") or entry.find("content")
+                    summary_text = summary_tag.get_text(" ", strip=True) if summary_tag else ""
                     if iso_date and link_href and 15 <= len(clean_title) <= 200:
                         full_url = urljoin(base_url, link_href)
                         if (
                             urlparse(full_url).netloc.lower().replace("www.", "") == base_domain
                             and clean_title.lower() not in self.GENERIC_TITLES
+                            and self._matches_company_name(
+                                f"{clean_title} {summary_text}", company_name
+                            )
                         ):
                             articles.append(
-                                {"title": clean_title, "url": full_url, "published_date": iso_date}
+                                {
+                                    "title": clean_title,
+                                    "url": full_url,
+                                    "published_date": iso_date,
+                                    "source_url": feed_url or base_url,
+                                }
                             )
                     if len(articles) >= max_items:
                         break
@@ -314,15 +348,26 @@ class NewsCollector:
                 raw_title = t_tag.get_text(strip=True)
                 iso_date = self._parse_iso_date(d_tag.get_text(strip=True))
                 clean_title = normalize_norwegian_text(re.sub(r"<[^>]+>", "", raw_title))
+                desc_tag = item.find("description") or item.find("summary")
+                desc_text = desc_tag.get_text(" ", strip=True) if desc_tag else ""
                 if iso_date and link_href and 15 <= len(clean_title) <= 200:
                     full_url = urljoin(base_url, link_href)
                     parsed = urlparse(full_url)
                     link_domain = parsed.netloc.lower().replace("www.", "")
-                    if (link_domain == base_domain or not link_domain) and (
-                        clean_title.lower() not in self.GENERIC_TITLES
+                    if (
+                        (link_domain == base_domain or not link_domain)
+                        and clean_title.lower() not in self.GENERIC_TITLES
+                        and self._matches_company_name(
+                            f"{clean_title} {desc_text}", company_name
+                        )
                     ):
                         articles.append(
-                            {"title": clean_title, "url": full_url, "published_date": iso_date}
+                            {
+                                "title": clean_title,
+                                "url": full_url,
+                                "published_date": iso_date,
+                                "source_url": feed_url or base_url,
+                            }
                         )
                 if len(articles) >= max_items:
                     break
@@ -374,6 +419,10 @@ class NewsCollector:
             if not (15 <= len(clean_title) <= 200):
                 continue
             if clean_lower in self.GENERIC_TITLES:
+                continue
+            if not self._matches_company_name(
+                f"{clean_title} {parent.get_text(' ', strip=True)[:500]}", company_name
+            ):
                 continue
 
             if not any(a["title"] == clean_title or a["url"] == full_url for a in articles):

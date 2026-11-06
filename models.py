@@ -51,11 +51,14 @@ class SectionWorkplaces(BaseModel):
 
 class SectionWebsite(BaseModel):
     status: str = "available"
-    verification_method: Optional[str] = None  # registry_listed, orgnr_in_html, email_domain_proven, not_verified
+    verification_method: Optional[str] = None  # registry_listed, tier0_brreg_registered, tier1_orgnr_in_html, tier2_registry_listed, tier3_name_proven, not_verified
     official_website: Optional[str] = None
     claim_id: Optional[str] = None
+    source_url: Optional[str] = None
     description: Optional[str] = None
     social_profiles: list[str] = Field(default_factory=list)
+    social_claims: list[dict[str, Any]] = Field(default_factory=list)
+    claims: list[dict[str, Any]] = Field(default_factory=list)
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
     reason: Optional[str] = None
@@ -99,8 +102,10 @@ class Synthesis(BaseModel):
 
 class SourceRecord(BaseModel):
     url: str
-    type: str = "api"  # api, website, scraping
+    type: str = "api"  # api, website, scraping, feed
+    source_name: Optional[str] = None
     retrieved_date: str
+    status_code: Optional[int] = None
     claims_backed: list[str] = Field(default_factory=list)
 
 
@@ -140,4 +145,11 @@ class RunReport(BaseModel):
     average_claims_per_envelope: float = 0.0
     average_sources_per_envelope: float = 0.0
     section_completeness: dict[str, float] = Field(default_factory=dict)
+    source_status_counts: dict[str, int] = Field(default_factory=dict)
+    registry_listed_websites: int = 0
+    http_verified_websites: int = 0
+    profiles_with_announcements: int = 0
+    profiles_with_social_links: int = 0
+    profiles_with_news: int = 0
+    profiles_with_hiring: int = 0
     compliance_checks: dict[str, bool] = Field(default_factory=dict)

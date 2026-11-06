@@ -982,6 +982,11 @@ class ViewerGenerator:
       display: flex;
     }}
 
+    /* Page 5: Side-by-Side Compare */
+    #page-compare.active {{
+      display: flex;
+    }}
+
     /* Global Terminal Footer */
     footer {{
       background: var(--bg-subtle);
@@ -1145,7 +1150,7 @@ class ViewerGenerator:
         Backend: <strong id="server-status-label" style="color:#f59e0b;">CHECKING...</strong>
       </div>
       <div class="ticker-stat">Companies: <strong id="tele-total">0</strong></div>
-      <div class="ticker-stat">Verified Domains: <strong id="tele-web">0</strong></div>
+      <div class="ticker-stat" title="Website links from BRREG or verified corporate sites">Website Links: <strong id="tele-web">0</strong></div>
       <div class="ticker-stat emerald">Claims: <strong id="tele-claims">0</strong></div>
       <div class="ticker-stat emerald">Integrity: <strong>100% Modulo 11 PASS</strong></div>
       <button class="btn-terminal" onclick="exportFilteredJSON()" style="margin-left:0.5rem;">
@@ -1172,7 +1177,7 @@ class ViewerGenerator:
               <i data-lucide="layers"></i> All (<span id="count-all">0</span>)
             </button>
             <button class="filter-pill-btn" data-filter="web" onclick="setFilter('web', this)">
-              <i data-lucide="globe"></i> Verified Web
+              <i data-lucide="globe"></i> Website Links
             </button>
             <button class="filter-pill-btn" data-filter="employees" onclick="setFilter('employees', this)">
               <i data-lucide="users"></i> With Employees
@@ -1355,11 +1360,11 @@ Awaiting target organization number...
             </div>
             <div class="stat-telemetry-row">
               <span class="stat-telemetry-label"><i data-lucide="search"></i> Single Deep Research Cap</span>
-              <span class="stat-telemetry-value">14 queries max</span>
+              <span class="stat-telemetry-value">12–19 requests / entity</span>
             </div>
             <div class="stat-telemetry-row">
               <span class="stat-telemetry-label"><i data-lucide="database"></i> Indexed Knowledge Base</span>
-              <span class="stat-telemetry-value">1,000 Companies (16,998 claims)</span>
+              <span class="stat-telemetry-value" id="settings-indexed">Computing...</span>
             </div>
             <div class="stat-telemetry-row">
               <span class="stat-telemetry-label"><i data-lucide="check-circle-2"></i> Norwegian Standard</span>
@@ -1424,21 +1429,23 @@ Awaiting target organization number...
             <table class="terminal-table">
               <thead><tr><th>Criterion</th><th>Target</th><th>Signalpost Implementation</th><th>Score</th></tr></thead>
               <tbody>
-                <tr><td><b>Coverage (Useful Info)</b></td><td>&ge; 21/35 pts</td><td>5 BRREG registers (Enheter, Roller, Regnskap, Underenheter, Kunngjøringer) + Web</td><td><span class="tag-badge emerald">32 / 35</span></td></tr>
-                <tr><td><b>Precision & Evidence</b></td><td>30 pts max</td><td>Sequential Claim IDs (c001, c002) linking every fact to exact source URL & date</td><td><span class="tag-badge emerald">29 / 30</span></td></tr>
-                <tr><td><b>Update & Freshness</b></td><td>20 pts max</td><td>Snapshot state store (./store/{{orgnr}}.json) with exact field diffing</td><td><span class="tag-badge emerald">19 / 20</span></td></tr>
-                <tr><td><b>Synthesis & Explanations</b></td><td>10 pts max</td><td>Fluent English corporate briefings with clickable claim chip citations [cXXX]</td><td><span class="tag-badge emerald">9 / 10</span></td></tr>
-                <tr><td><b>UX & Ease of Use</b></td><td>5 pts max</td><td>Pure OLED Terminal, Chart.js analytics, Lucide vector icons, GitHub Pages ready</td><td><span class="tag-badge emerald">5 / 5</span></td></tr>
+                <tr><td><b>Coverage (Useful Info)</b></td><td>See Explorer counts</td><td>BRREG Enhetsregisteret, Rolleregisteret, Regnskapsregisteret, Underenhetsregisteret, Kunngjøringer, and registry-listed website links</td><td><span class="tag-badge blue">Measured in dataset</span></td></tr>
+                <tr><td><b>Precision & Evidence</b></td><td>Claim IDs + source URLs/dates</td><td>Sequential claim IDs link facts to exact source URLs and retrieval dates</td><td><span class="tag-badge blue">Implemented</span></td></tr>
+                <tr><td><b>Update & Freshness</b></td><td>State store diffing</td><td>Snapshot state store (./store/{{orgnr}}.json) with exact field diffing</td><td><span class="tag-badge blue">Implemented</span></td></tr>
+                <tr><td><b>Synthesis & Explanations</b></td><td>Citation-grounded briefings</td><td>Deterministic template synthesis preserves [cXXX] claim citations</td><td><span class="tag-badge blue">Implemented</span></td></tr>
+                <tr><td><b>UX & Ease of Use</b></td><td>Responsive terminal UI</td><td>Explorer, Compare, Studio, Settings, Validator, source inspector, export</td><td><span class="tag-badge blue">Implemented</span></td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="stat-telemetry-row" style="margin-top:auto;">
-            <span class="stat-telemetry-label"><i data-lucide="award"></i> Total Overall Score</span>
-            <span class="stat-telemetry-value" style="color:#10b981; font-size:1rem;">94 / 100 (Exceeds Target)</span>
+            <span class="stat-telemetry-label"><i data-lucide="award"></i> Judging Scores</span>
+            <span class="stat-telemetry-value" style="color:#a1a1aa; font-size:1rem;">Awarded by judges; not self-reported</span>
           </div>
         </div>
       </div>
+    </div>
+
     <!-- PAGE 5: Side-by-Side Company Comparison ($500 JBOX UX Feature) -->
     <div id="page-compare" class="page-view" style="padding:2rem; overflow-y:auto; flex-direction:column; gap:1.5rem;">
       <div class="studio-hero">
@@ -1486,7 +1493,7 @@ Awaiting target organization number...
           <i data-lucide="shield-check" style="color:var(--accent-cyan); width:18px; height:18px;"></i>
           <span style="font-weight:700; color:#fff; font-size:0.95rem;">Audited Evidence Source Inspector</span>
         </div>
-        <button class="btn-terminal" onclick="closeSourceModal()" style="padding:0.2rem 0.5rem; font-size:0.75rem;">✕ Close</button>
+        <button class="btn-terminal" onclick="closeSourceModal()" style="padding:0.2rem 0.5rem; font-size:0.75rem;">Close</button>
       </div>
       <div id="modal-content-body" style="font-size:0.82rem; color:var(--text-secondary); line-height:1.6;">
         <!-- Populated on click -->
@@ -1610,12 +1617,18 @@ Awaiting target organization number...
 
     // Page Navigation
     function navigatePage(pageId, btnEl) {{
+      const target = document.getElementById(`page-${{pageId}}`);
+      if (!target) return;
       document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-page-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(`page-${{pageId}}`).classList.add('active');
-      btnEl.classList.add('active');
+      target.classList.add('active');
+      const activeBtn = btnEl || Array.from(document.querySelectorAll('.nav-page-btn')).find(
+        b => (b.getAttribute('onclick') || '').includes(`'${{pageId}}'`)
+      );
+      if (activeBtn) activeBtn.classList.add('active');
       lucide.createIcons();
       if (pageId === 'validator') runModulo11Calculator();
+      if (pageId === 'compare') populateComparisonDropdowns();
     }}
 
     function fillValidator(orgnr) {{
@@ -1666,8 +1679,8 @@ Awaiting target organization number...
 
     // Header Telemetry
     document.getElementById('tele-total').innerText = RAW_DATA.length.toLocaleString();
-    const verifiedWebCount = RAW_DATA.filter(c => c.sections?.website?.status === 'available').length;
-    document.getElementById('tele-web').innerText = verifiedWebCount.toLocaleString();
+    const websiteLinkCount = RAW_DATA.filter(c => c.sections?.website?.status === 'available').length;
+    document.getElementById('tele-web').innerText = websiteLinkCount.toLocaleString();
     document.getElementById('count-all').innerText = RAW_DATA.length.toLocaleString();
 
     let totalClaims = 0;
@@ -1676,9 +1689,14 @@ Awaiting target organization number...
         if (s?.claims) {{
           totalClaims += Array.isArray(s.claims) ? s.claims.length : Object.keys(s.claims).length;
         }}
+        if (Array.isArray(s?.social_claims)) totalClaims += s.social_claims.length;
       }}
     }});
     document.getElementById('tele-claims').innerText = totalClaims.toLocaleString();
+    const indexedTelemetry = document.getElementById('settings-indexed');
+    if (indexedTelemetry) {{
+      indexedTelemetry.innerText = `${{RAW_DATA.length.toLocaleString()}} companies (${{totalClaims.toLocaleString()}} claims)`;
+    }}
 
     // DOM References
     const searchInput = document.getElementById('omni-search');
@@ -1700,9 +1718,14 @@ Awaiting target organization number...
     window.addEventListener('keydown', (e) => {{
       if (e.key === '/' && document.activeElement !== searchInput) {{
         e.preventDefault();
-        navigatePage('explorer', document.querySelector('.nav-page-btn'));
+        navigatePage('explorer');
         searchInput.focus();
       }} else if (e.key === 'Escape') {{
+        const modal = document.getElementById('source-modal');
+        if (modal && modal.style.display === 'flex') {{
+          closeSourceModal();
+          return;
+        }}
         searchInput.value = '';
         applyFiltersAndSearch();
       }}
@@ -1729,13 +1752,20 @@ Awaiting target organization number...
         const name = (legal.legal_name?.value || '').toLowerCase();
         const orgnr = comp.organisation_number || '';
         const city = (legal.registered_address?.value?.city || '').toLowerCase();
-        const nace = (legal.industry_codes?.value?.[0]?.description || '').toLowerCase();
+        const municipality = (legal.registered_address?.value?.municipality || '').toLowerCase();
+        const naceCode = (legal.industry_codes?.value?.[0]?.code || '').toLowerCase();
+        const naceDescription = (legal.industry_codes?.value?.[0]?.description || '').toLowerCase();
         const form = (legal.legal_form?.value || '').toLowerCase();
+        const formDescription = (legal.legal_form?.description || '').toLowerCase();
 
         if (q) {{
-          const matchText = name.includes(q) || city.includes(q) || nace.includes(q) || form.includes(q);
+          const naceClean = naceCode.replace(/\\D/g, '');
+          const matchText = name.includes(q) || city.includes(q) || municipality.includes(q)
+            || naceCode.includes(q) || naceDescription.includes(q)
+            || form.includes(q) || formDescription.includes(q);
           const matchOrgnr = orgnr.includes(q) || (qClean && orgnr.includes(qClean));
-          if (!matchText && !matchOrgnr) return false;
+          const matchNace = qClean && naceClean.includes(qClean);
+          if (!matchText && !matchOrgnr && !matchNace) return false;
         }}
 
         if (currentFilter === 'web') {{
@@ -1771,7 +1801,7 @@ Awaiting target organization number...
           <div style="display:flex; height:100%; align-items:center; justify-content:center; color:var(--text-muted); flex-direction:column; gap:0.75rem; padding:2rem; text-align:center;">
             <i data-lucide="search-x" style="width:40px; height:40px; color:#52525b;"></i>
             <span style="font-size:0.9rem; color:var(--text-primary);">No pre-compiled companies matching query "<b>${{q}}</b>"</span>
-            ${{qClean && qClean.length === 9 ? `<button class="btn-terminal accent" onclick="fillStudioTarget('${{qClean}}'); navigatePage('studio', document.querySelectorAll('.nav-page-btn')[1]); runLiveStudioAgent();" style="padding:0.6rem 1.2rem; font-size:0.85rem;"><i data-lucide="play"></i> Research Org ${{qClean}} Live via Server API</button>` : ''}}
+            ${{qClean && qClean.length === 9 ? `<button class="btn-terminal accent" onclick="fillStudioTarget('${{qClean}}'); navigatePage('studio'); runLiveStudioAgent();" style="padding:0.6rem 1.2rem; font-size:0.85rem;"><i data-lucide="play"></i> Research Org ${{qClean}} Live via Server API</button>` : ''}}
             <button class="btn-terminal" onclick="searchInput.value=''; applyFiltersAndSearch();">Clear Filters</button>
           </div>
         `;
@@ -1808,13 +1838,13 @@ Awaiting target organization number...
         }};
 
         card.innerHTML = `
-          <div class="company-avatar-box">${{initials}}</div>
+          <div class="company-avatar-box">${{escapeHtml(initials)}}</div>
           <div class="company-card-details">
-            <div class="card-top-name" title="${{name}}">${{name}}</div>
-            <div class="card-orgnr-line">${{orgnr.slice(0,3)}} ${{orgnr.slice(3,6)}} ${{orgnr.slice(6)}} ${{city ? '• ' + city : ''}}</div>
+            <div class="card-top-name" title="${{escapeAttr(name)}}">${{escapeHtml(name)}}</div>
+            <div class="card-orgnr-line">${{escapeHtml(orgnr.slice(0,3))}} ${{escapeHtml(orgnr.slice(3,6))}} ${{escapeHtml(orgnr.slice(6))}} ${{city ? '• ' + escapeHtml(city) : ''}}</div>
             <div class="card-tags-strip">
-              <span class="tag-badge blue">${{form}}</span>
-              ${{comp.sections?.website?.status === 'available' ? '<span class="tag-badge emerald"><i data-lucide="globe"></i> Verified</span>' : ''}}
+              <span class="tag-badge blue">${{escapeHtml(form)}}</span>
+              ${{websiteBadgeHtml(comp.sections?.website)}}
               ${{legal.employee_count?.value > 0 ? `<span class="tag-badge amber"><i data-lucide="users"></i> ${{legal.employee_count.value}}</span>` : ''}}
             </div>
           </div>
@@ -1837,6 +1867,43 @@ Awaiting target organization number...
 
     let currentActiveTab = 'profile';
 
+    function websiteMethodLabel(website) {{
+      if (!website || website.status !== 'available' || !website.official_website) return 'No website link recorded';
+      const method = website.verification_method || '';
+      if (method === 'registry_listed' || method === 'tier2_registry_listed') {{
+        return 'Website listed in Enhetsregisteret (not HTTP-verified)';
+      }}
+      if (method.startsWith('tier0')) return 'Website matched to registry data and HTTP-checked';
+      if (method.startsWith('tier1') || method.startsWith('tier2')) return 'Website HTTP-checked and ownership signals matched';
+      if (method.startsWith('tier3')) return 'Website HTTP-reachable; ownership match not confirmed';
+      return 'Website link recorded'; 
+    }}
+
+    function websiteBadgeHtml(website) {{
+      if (!website || website.status !== 'available') return '';
+      const registryOnly = ['registry_listed', 'tier2_registry_listed'].includes(website.verification_method || '');
+      return registryOnly
+        ? '<span class="tag-badge blue"><i data-lucide="globe"></i> Registry link</span>'
+        : '<span class="tag-badge emerald"><i data-lucide="globe"></i> Website checked</span>';
+    }}
+
+    function sourceTypeLabel(type) {{
+      if (type === 'api') return 'Official Registry API';
+      if (type === 'feed') return 'RSS / Atom Feed';
+      if (type === 'website') return 'Corporate Website';
+      return type ? String(type).toUpperCase() : 'Unknown';
+    }}
+
+    function selectCompany(orgnr) {{
+      const comp = RAW_DATA.find(c => c.organisation_number === orgnr);
+      if (!comp) return;
+      selectedCompany = comp;
+      const idx = filteredData.findIndex(c => c.organisation_number === orgnr);
+      if (idx >= 0) currentPage = Math.floor(idx / PAGE_SIZE) + 1;
+      renderFeed();
+      renderDetail(comp);
+    }}
+
     function renderDetail(comp) {{
       selectedCompany = comp;
       const legal = comp.sections?.legal_identity?.claims || {{}};
@@ -1850,8 +1917,22 @@ Awaiting target organization number...
       const website = comp.sections?.website || {{}};
       const signals = comp.derived_signals || {{}};
       const sources = comp.sources || [];
+      const socialClaims = website.social_claims || [];
       const orgnr = comp.organisation_number;
       const name = legal.legal_name?.value || orgnr;
+      const employeeValue = legal.employee_count?.value;
+      const employeeReported = typeof employeeValue === 'number';
+      const employeeDisplay = employeeReported ? Number(employeeValue).toLocaleString() : 'Not reported';
+      const bankruptFlag = Boolean(legal.is_bankrupt?.value);
+      const liquidationFlag = Boolean(legal.is_under_liquidation?.value);
+      const registryStatus = bankruptFlag
+        ? 'Bankruptcy flag recorded'
+        : liquidationFlag
+          ? 'Liquidation flag recorded'
+          : 'No insolvency flag recorded';
+      const registryStatusColor = (bankruptFlag || liquidationFlag) ? 'var(--accent-rose)' : '#34d399';
+      const hasFinancials = ['revenue', 'operating_result', 'net_income', 'equity', 'total_debt']
+        .some(k => typeof accClaims[k]?.value === 'number');
 
       function fmtCurrency(val, curr = 'NOK') {{
         if (val === undefined || val === null) return 'N/A';
@@ -1861,25 +1942,25 @@ Awaiting target organization number...
         return curr + ' ' + num.toLocaleString();
       }}
 
-      let synthesisHtml = comp.synthesis?.text || 'No verified synthesis compiled.';
+      let synthesisHtml = escapeHtml(comp.synthesis?.text || 'No verified synthesis compiled.');
       synthesisHtml = synthesisHtml.replace(/\\[(c\\d+)\\]/g, '<span class="claim-interactive-chip" onclick="jumpToClaim(\\'$1\\')">$1</span>');
 
       terminalStage.innerHTML = `
         <div class="profile-hero-card">
           <div class="hero-flex-header">
             <div class="hero-identity-group">
-              <div class="hero-large-monogram">${{name.slice(0, 2)}}</div>
+              <div class="hero-large-monogram">${{escapeHtml(name.slice(0, 2))}}</div>
               <div class="hero-title-block">
-                <h2>${{name}}</h2>
+                <h2>${{escapeHtml(name)}}</h2>
                 <div class="hero-meta-line">
-                  <span>ORG: <span class="mono-tag">${{orgnr.slice(0,3)}} ${{orgnr.slice(3,6)}} ${{orgnr.slice(6)}}</span></span>
+                  <span>ORG: <span class="mono-tag">${{escapeHtml(orgnr.slice(0,3))}} ${{escapeHtml(orgnr.slice(3,6))}} ${{escapeHtml(orgnr.slice(6))}}</span></span>
                   <span>•</span>
-                  <span>Form: <b>${{legal.legal_form?.description || legal.legal_form?.value || 'Aksjeselskap'}}</b></span>
+                  <span>Form: <b>${{escapeHtml(legal.legal_form?.description || legal.legal_form?.value || 'N/A')}}</b></span>
                   <span>•</span>
-                  <span>Registered: <b>${{legal.incorporation_date?.value || 'N/A'}}</b></span>
+                  <span>Registered: <b>${{escapeHtml(legal.incorporation_date?.value || 'N/A')}}</b></span>
                   <span>•</span>
-                  <span style="color:${{legal.is_bankrupt?.value ? 'var(--accent-rose)' : '#34d399'}};">
-                    ${{legal.is_bankrupt?.value ? 'Insolvent / Konkurs' : '✓ Active Foretaksregisteret'}}
+                  <span style="color:${{registryStatusColor}};">
+                    ${{registryStatus}}
                   </span>
                 </div>
               </div>
@@ -1888,7 +1969,7 @@ Awaiting target organization number...
             <div class="hero-actions-cluster">
               <button class="btn-terminal" onclick="copyCurrentJSON()"><i data-lucide="copy"></i> Copy JSON</button>
               <a class="btn-terminal" href="https://data.brreg.no/enhetsregisteret/api/enheter/${{orgnr}}" target="_blank"><i data-lucide="external-link"></i> BRREG API</a>
-              ${{website.official_website ? `<a class="btn-terminal accent" href="${{website.official_website}}" target="_blank"><i data-lucide="globe"></i> Official Site</a>` : ''}}
+              ${{website.official_website ? `<a class="btn-terminal accent" href="${{escapeAttr(website.official_website)}}" target="_blank" rel="noopener"><i data-lucide="globe"></i> Website Link</a>` : ''}}
             </div>
           </div>
         </div>
@@ -1907,8 +1988,8 @@ Awaiting target organization number...
               <span>Workforce Scale</span>
               <i data-lucide="users"></i>
             </div>
-            <div class="kpi-tile-value">${{legal.employee_count?.value ?? 0}}</div>
-            <div class="kpi-tile-delta">${{signals.workforce_scale?.classification || 'Registered workers'}}</div>
+            <div class="kpi-tile-value">${{employeeDisplay}}</div>
+            <div class="kpi-tile-delta">${{signals.workforce_scale?.classification || (employeeReported ? 'Registered employees' : 'Not reported in Enhetsregisteret')}}</div>
           </div>
 
           <div class="kpi-tile">
@@ -1928,20 +2009,20 @@ Awaiting target organization number...
               <i data-lucide="layers"></i>
             </div>
             <div class="kpi-tile-value">${{fmtCurrency(accClaims.equity?.value, accClaims.equity?.currency)}}</div>
-            <div class="kpi-tile-delta ${{signals.negative_equity?.value ? 'warning' : 'positive'}}">
-              ${{signals.negative_equity?.description || 'Solvent reserves'}}
+            <div class="kpi-tile-delta ${{signals.negative_equity?.value ? 'warning' : (signals.negative_equity ? 'positive' : '')}}">
+              ${{signals.negative_equity?.description || 'Solvency not assessed (no filed equity)'}}
             </div>
           </div>
 
           <div class="kpi-tile">
             <div class="kpi-tile-header">
-              <span>Completeness & Confidence</span>
+              <span>Profile Completeness</span>
               <i data-lucide="shield-check"></i>
             </div>
-            <div class="kpi-tile-value" style="font-size:1.15rem; color:${{signals.completeness_score ? (signals.completeness_score.value >= 70 ? '#34d399' : signals.completeness_score.value >= 40 ? '#38bdf8' : '#f59e0b') : (website.status === 'available' ? '#34d399' : 'var(--text-muted)')}};">
-              ${{signals.completeness_score ? signals.completeness_score.percentage + ' (' + signals.completeness_score.confidence_tier + ')' : (website.status === 'available' ? '✓ Tier Verified' : 'Standard')}}
+            <div class="kpi-tile-value" style="font-size:1.15rem; color:${{signals.completeness_score ? (signals.completeness_score.value >= 70 ? '#34d399' : signals.completeness_score.value >= 40 ? '#38bdf8' : '#f59e0b') : 'var(--text-muted)'}};">
+              ${{signals.completeness_score ? signals.completeness_score.percentage + ' (' + signals.completeness_score.confidence_tier + ')' : 'Not scored'}}
             </div>
-            <div class="kpi-tile-delta">${{signals.completeness_score ? signals.completeness_score.description : (website.verification_method || '3-Tier Check')}}</div>
+            <div class="kpi-tile-delta">${{signals.completeness_score ? signals.completeness_score.description : websiteMethodLabel(website)}}</div>
           </div>
         </div>
 
@@ -1954,7 +2035,13 @@ Awaiting target organization number...
             <span style="font-size:0.72rem; color:var(--text-muted); font-family:'JetBrains Mono';">${{accounts.reporting_period || 'Filing Year'}} Analytics</span>
           </div>
           <div style="height: 180px; position:relative;">
-            <canvas id="financialChart"></canvas>
+            ${{hasFinancials ? '<canvas id="financialChart"></canvas>' : `
+              <div class="empty-tab-state" style="height:100%; margin:0; justify-content:center;">
+                <i data-lucide="receipt" class="empty-tab-icon"></i>
+                <div class="empty-tab-title">No filed financial values</div>
+                <div class="empty-tab-desc">${{accounts.reason || 'Annual accounts are not available for this profile.'}}</div>
+              </div>
+            `}}
           </div>
         </div>
 
@@ -2011,20 +2098,16 @@ Awaiting target organization number...
       }}
 
       const accClaims = comp.sections?.annual_accounts?.claims || {{}};
-      const rev = Number(accClaims.revenue?.value || 0);
-      const op = Number(accClaims.operating_result?.value || 0);
-      const net = Number(accClaims.net_income?.value || 0);
-      const equity = Number(accClaims.equity?.value || 0);
-      const debt = Number(accClaims.total_debt?.value || 0);
-
-      const hasValues = rev || op || net || equity || debt;
+      const keys = ['revenue', 'operating_result', 'net_income', 'equity', 'total_debt'];
+      const values = keys.map(k => typeof accClaims[k]?.value === 'number' ? accClaims[k].value : null);
+      if (!values.some(v => v !== null)) return;
 
       financialChartInstance = new Chart(ctx, {{
         type: 'bar',
         data: {{
           labels: ['Revenue', 'Operating Profit', 'Net Income', 'Equity', 'Total Debt'],
           datasets: [{{
-            data: hasValues ? [rev, op, net, equity, debt] : [100, 20, 15, 60, 40],
+            data: values,
             backgroundColor: [
               '#38bdf8',
               '#34d399',
@@ -2048,7 +2131,7 @@ Awaiting target organization number...
               titleFont: {{ family: 'Inter', weight: 600 }},
               bodyFont: {{ family: 'JetBrains Mono' }},
               callbacks: {{
-                label: (c) => ' NOK ' + Number(c.raw).toLocaleString()
+                label: (c) => c.raw === null ? 'Not reported' : ' NOK ' + Number(c.raw).toLocaleString()
               }}
             }}
           }},
@@ -2084,8 +2167,13 @@ Awaiting target organization number...
       const leaders = comp.sections?.leadership?.claims || [];
       const workplaces = comp.sections?.workplaces?.claims || [];
       const announcements = comp.sections?.announcements?.claims || [];
+      const news = comp.sections?.news?.claims || [];
+      const hiring = comp.sections?.hiring?.claims || [];
       const sources = comp.sources || [];
       const website = comp.sections?.website || {{}};
+      const socialClaims = website.social_claims || [];
+      const employeeValue = legal.employee_count?.value;
+      const employeeDisplay = typeof employeeValue === 'number' ? Number(employeeValue).toLocaleString() : 'Not reported';
 
       if (currentActiveTab === 'profile') {{
         viewport.innerHTML = `
@@ -2093,13 +2181,16 @@ Awaiting target organization number...
             <table class="terminal-table">
               <thead><tr><th>Attribute</th><th>Official Fact</th><th>Claim Reference</th><th>Register Authority</th></tr></thead>
               <tbody>
-                <tr id="row-legal_name"><td><b>Legal Name</b></td><td>${{legal.legal_name?.value || 'N/A'}}</td><td><span class="claim-interactive-chip">${{legal.legal_name?.claim_id || 'c001'}}</span></td><td>Enhetsregisteret</td></tr>
-                <tr id="row-legal_form"><td><b>Entity Form</b></td><td>${{legal.legal_form?.description || 'N/A'}} (${{legal.legal_form?.value || 'AS'}})</td><td><span class="claim-interactive-chip">${{legal.legal_form?.claim_id || 'c002'}}</span></td><td>Enhetsregisteret</td></tr>
-                <tr id="row-address"><td><b>Registered Address</b></td><td>${{legal.registered_address?.value?.street || ''}}, ${{legal.registered_address?.value?.postal_code || ''}} ${{legal.registered_address?.value?.city || ''}}, ${{legal.registered_address?.value?.country || 'Norge'}}</td><td><span class="claim-interactive-chip">${{legal.registered_address?.claim_id || 'c004'}}</span></td><td>Enhetsregisteret</td></tr>
-                <tr id="row-nace"><td><b>Industry Sector (NACE)</b></td><td>${{legal.industry_codes?.value?.[0]?.code || ''}} — ${{legal.industry_codes?.value?.[0]?.description || 'N/A'}}</td><td><span class="claim-interactive-chip">${{legal.industry_codes?.claim_id || 'c005'}}</span></td><td>Enhetsregisteret</td></tr>
-                <tr id="row-emp"><td><b>Employee Count</b></td><td>${{legal.employee_count?.value ?? 0}} registered personnel</td><td><span class="claim-interactive-chip">${{legal.employee_count?.claim_id || 'c006'}}</span></td><td>Enhetsregisteret</td></tr>
-                <tr id="row-former"><td><b>Former Legal Names</b></td><td>${{legal.former_names?.value?.join(', ') || 'None filed'}}</td><td><span class="claim-interactive-chip">${{legal.former_names?.claim_id || '-'}}</span></td><td>Enhetsregisteret</td></tr>
-                <tr id="row-web"><td><b>Verified Domain</b></td><td>${{website.official_website ? `<a href="${{website.official_website}}" target="_blank" style="color:var(--accent-cyan);">${{website.official_website}}</a>` : 'Not Available'}}</td><td><span class="claim-interactive-chip">${{website.claim_id || '-'}}</span></td><td>${{website.verification_method || 'Unverified'}}</td></tr>
+                <tr id="row-legal_name"><td><b>Legal Name</b></td><td>${{escapeHtml(legal.legal_name?.value || 'N/A')}}</td><td>${{legal.legal_name?.claim_id ? `<span class="claim-interactive-chip">${{legal.legal_name.claim_id}}</span>` : '-'}}</td><td>Enhetsregisteret</td></tr>
+                <tr id="row-legal_form"><td><b>Entity Form</b></td><td>${{escapeHtml(legal.legal_form?.description || 'N/A')}} (${{escapeHtml(legal.legal_form?.value || 'N/A')}})</td><td>${{legal.legal_form?.claim_id ? `<span class="claim-interactive-chip">${{legal.legal_form.claim_id}}</span>` : '-'}}</td><td>Enhetsregisteret</td></tr>
+                <tr id="row-address"><td><b>Registered Address</b></td><td>${{escapeHtml(legal.registered_address?.value?.street || '')}}, ${{escapeHtml(legal.registered_address?.value?.postal_code || '')}} ${{escapeHtml(legal.registered_address?.value?.city || '')}}, ${{escapeHtml(legal.registered_address?.value?.country || 'Norge')}}</td><td>${{legal.registered_address?.claim_id ? `<span class="claim-interactive-chip">${{legal.registered_address.claim_id}}</span>` : '-'}}</td><td>Enhetsregisteret</td></tr>
+                <tr id="row-nace"><td><b>Industry Sector (NACE)</b></td><td>${{escapeHtml(legal.industry_codes?.value?.[0]?.code || '')}} — ${{escapeHtml(legal.industry_codes?.value?.[0]?.description || 'N/A')}}</td><td>${{legal.industry_codes?.claim_id ? `<span class="claim-interactive-chip">${{legal.industry_codes.claim_id}}</span>` : '-'}}</td><td>Enhetsregisteret</td></tr>
+                <tr id="row-emp"><td><b>Employee Count</b></td><td>${{employeeDisplay}} ${{typeof employeeValue === 'number' ? 'registered personnel' : ''}}</td><td>${{legal.employee_count?.claim_id ? `<span class="claim-interactive-chip">${{legal.employee_count.claim_id}}</span>` : '-'}}</td><td>Enhetsregisteret</td></tr>
+                <tr id="row-email"><td><b>Registered Email</b></td><td>${{legal.registered_email?.value || 'Not filed'}}</td><td>${{legal.registered_email?.claim_id ? `<span class="claim-interactive-chip">${{legal.registered_email.claim_id}}</span>` : '-'}}</td><td>Enhetsregisteret</td></tr>
+                <tr id="row-phone"><td><b>Registered Phone</b></td><td>${{legal.registered_phone?.value || 'Not filed'}}</td><td>${{legal.registered_phone?.claim_id ? `<span class="claim-interactive-chip">${{legal.registered_phone.claim_id}}</span>` : '-'}}</td><td>Enhetsregisteret</td></tr>
+                <tr id="row-former"><td><b>Former Legal Names</b></td><td>${{legal.former_names?.value?.join(', ') || 'None filed'}}</td><td>${{legal.former_names?.claim_id ? `<span class="claim-interactive-chip">${{legal.former_names.claim_id}}</span>` : '-'}}</td><td>Enhetsregisteret</td></tr>
+                <tr id="row-web"><td><b>Website Link</b></td><td>${{website.official_website ? `<a href="${{escapeAttr(website.official_website)}}" target="_blank" rel="noopener" style="color:var(--accent-cyan);">${{escapeHtml(website.official_website)}}</a>` : 'Not Available'}}</td><td>${{website.claim_id ? `<span class="claim-interactive-chip">${{website.claim_id}}</span>` : '-'}}</td><td>${{escapeHtml(websiteMethodLabel(website))}}</td></tr>
+                <tr id="row-social"><td><b>Social Links</b></td><td>${{socialClaims.length ? socialClaims.map(s => `<a href="${{escapeAttr(s.url)}}" target="_blank" rel="noopener" style="color:var(--accent-cyan); display:inline-block; margin-right:0.6rem;">${{escapeHtml(s.platform || s.url)}}</a>`).join('') : 'None found'}}</td><td>${{socialClaims.length ? socialClaims.map(s => `<span class="claim-interactive-chip">${{s.claim_id}}</span>`).join(' ') : '-'}}</td><td>Found on verified website; account ownership not verified</td></tr>
               </tbody>
             </table>
           </div>
@@ -2141,14 +2232,15 @@ Awaiting target organization number...
         viewport.innerHTML = workplaces.length ? `
           <div class="terminal-table-container">
             <table class="terminal-table">
-              <thead><tr><th>Subunit Orgnr</th><th>Facility Name</th><th>Workforce</th><th>Municipality</th></tr></thead>
+              <thead><tr><th>Subunit Orgnr</th><th>Facility Name</th><th>Workforce</th><th>Municipality</th><th>Claim ID</th></tr></thead>
               <tbody>
                 ${{workplaces.map(w => `
                   <tr>
-                    <td style="font-family:'JetBrains Mono'; color:#38bdf8;">${{w.org_number}}</td>
-                    <td><b>${{w.name}}</b></td>
-                    <td>${{w.employee_count}} workers</td>
-                    <td>${{w.municipality || 'N/A'}}</td>
+                    <td style="font-family:'JetBrains Mono'; color:#38bdf8;">${{escapeHtml(w.org_number || 'N/A')}}</td>
+                    <td><b>${{escapeHtml(w.name || 'N/A')}}</b></td>
+                    <td>${{typeof w.employee_count === 'number' ? w.employee_count + ' workers' : 'Not reported'}}</td>
+                    <td>${{escapeHtml(w.municipality || 'N/A')}}</td>
+                    <td>${{w.claim_id ? `<span class="claim-interactive-chip">${{w.claim_id}}</span>` : '-'}}</td>
                   </tr>
                 `).join('')}}
               </tbody>
@@ -2165,13 +2257,14 @@ Awaiting target organization number...
         viewport.innerHTML = announcements.length ? `
           <div class="terminal-table-container">
             <table class="terminal-table">
-              <thead><tr><th>Filing Date</th><th>Foretaksregisteret Notice</th><th>Filing Details</th></tr></thead>
+              <thead><tr><th>Filing Date</th><th>Foretaksregisteret Notice</th><th>Filing Details</th><th>Claim ID</th></tr></thead>
               <tbody>
                 ${{announcements.map(a => `
                   <tr>
-                    <td style="font-family:'JetBrains Mono'; color:#34d399;">${{a.date}}</td>
-                    <td><b>${{a.type}}</b></td>
-                    <td style="color:var(--text-secondary);">${{a.description}}</td>
+                    <td style="font-family:'JetBrains Mono'; color:#34d399;">${{escapeHtml(a.date || 'N/A')}}</td>
+                    <td><b>${{escapeHtml(a.type || 'Notice')}}</b></td>
+                    <td style="color:var(--text-secondary);">${{escapeHtml(a.description || '')}}</td>
+                    <td>${{a.claim_id ? `<span class="claim-interactive-chip">${{a.claim_id}}</span>` : '-'}}</td>
                   </tr>
                 `).join('')}}
               </tbody>
@@ -2205,7 +2298,7 @@ Awaiting target organization number...
           <div class="empty-tab-state">
             <i data-lucide="newspaper" class="empty-tab-icon"></i>
             <div class="empty-tab-title">No Verified, Dated News Articles</div>
-            <div class="empty-tab-desc">Signalpost strictly enforces reviewer audit criteria: news items require explicit <code>&lt;time datetime&gt;</code> tags and substantive articles directly on this company's verified domain. Aggregators, product pages, and generic menu buttons ("Read more") are strictly rejected.</div>
+            <div class="empty-tab-desc">${{escapeHtml(comp.sections?.news?.reason || 'No dated article with a direct company-domain match was found.')}} News requires a publication date and a substantive article link; aggregators and generic menu links are rejected.</div>
           </div>
         `;
       }} else if (currentActiveTab === 'hiring') {{
@@ -2228,20 +2321,21 @@ Awaiting target organization number...
           <div class="empty-tab-state">
             <i data-lucide="briefcase" class="empty-tab-icon"></i>
             <div class="empty-tab-title">No Direct Vacancies Listed</div>
-            <div class="empty-tab-desc">Audited against strict recruitment integrity guidelines: recruitment aggregator portals (e.g. bygg.no, finn.no) and generic career landing pages are blocked. Only individual job ads verified on this entity's direct site are accepted.</div>
+            <div class="empty-tab-desc">${{escapeHtml(comp.sections?.hiring?.reason || "No individual vacancy was verified on this company's direct website.")}} Recruitment aggregators and generic career landing pages are not counted.</div>
           </div>
         `;
       }} else if (currentActiveTab === 'sources') {{
         viewport.innerHTML = `
           <div class="terminal-table-container">
             <table class="terminal-table">
-              <thead><tr><th>Audited Registry Source URL</th><th>Protocol</th><th>Retrieved Timestamp</th><th>Backed Claims</th></tr></thead>
+              <thead><tr><th>Audited Source URL</th><th>Type</th><th>HTTP Status</th><th>Retrieved Date</th><th>Backed Claims</th></tr></thead>
               <tbody>
                 ${{sources.map(s => `
                   <tr>
-                    <td><a href="${{s.url}}" target="_blank" style="color:var(--accent-cyan); text-decoration:none;">${{s.url}}</a></td>
-                    <td><span class="tag-badge blue">${{s.type}}</span></td>
-                    <td style="font-family:'JetBrains Mono';">${{s.retrieved_date}}</td>
+                    <td><a href="${{escapeAttr(s.url)}}" target="_blank" rel="noopener" style="color:var(--accent-cyan); text-decoration:none;">${{escapeHtml(s.url)}}</a><div style="font-size:0.68rem; color:var(--text-muted); margin-top:0.2rem;">${{escapeHtml(s.source_name || '')}}</div></td>
+                    <td><span class="tag-badge blue">${{escapeHtml(sourceTypeLabel(s.type))}}</span></td>
+                    <td style="font-family:'JetBrains Mono';">${{s.status_code ? 'HTTP ' + s.status_code : 'Not recorded'}}</td>
+                    <td style="font-family:'JetBrains Mono';">${{escapeHtml(s.retrieved_date || s.retrieved_at || 'N/A')}}</td>
                     <td>${{s.claims_backed?.map(c => `<span class="claim-interactive-chip" style="font-size:0.65rem;">${{c}}</span>`).join('') || ''}}</td>
                   </tr>
                 `).join('')}}
@@ -2268,72 +2362,102 @@ Awaiting target organization number...
 
       const modal = document.getElementById('source-modal');
       const body = document.getElementById('modal-content-body');
+      if (!modal || !body) return;
 
-      // Find claim details across sections
+      // Find claim details across section claims and social claims
       let claimVal = 'N/A';
       let claimKey = claimId;
+      let verificationNote = '';
       for (const [secName, sec] of Object.entries(comp.sections || {{}})) {{
-        if (sec && sec.claims) {{
-          if (Array.isArray(sec.claims)) {{
-            const found = sec.claims.find(c => c.claim_id === claimId);
-            if (found) {{
-              claimVal = found.title || found.name || found.value || JSON.stringify(found);
-              claimKey = found.role || secName;
+        if (sec && Array.isArray(sec.claims)) {{
+          const found = sec.claims.find(c => c.claim_id === claimId);
+          if (found) {{
+            claimVal = found.title || found.name || found.value || JSON.stringify(found);
+            claimKey = found.role || secName;
+            break;
+          }}
+        }}
+        if (sec && sec.claims && !Array.isArray(sec.claims) && typeof sec.claims === 'object') {{
+          for (const [k, v] of Object.entries(sec.claims)) {{
+            if (v && v.claim_id === claimId) {{
+              claimVal = typeof v.value === 'object' ? JSON.stringify(v.value) : (v.value ?? 'N/A');
+              claimKey = k;
               break;
             }}
-          }} else if (typeof sec.claims === 'object') {{
-            for (const [k, v] of Object.entries(sec.claims)) {{
-              if (v && v.claim_id === claimId) {{
-                claimVal = typeof v.value === 'object' ? JSON.stringify(v.value) : (v.value ?? 'N/A');
-                claimKey = k;
-                break;
-              }}
-            }}
+          }}
+          if (claimKey !== claimId) break;
+        }}
+        if (sec && Array.isArray(sec.social_claims)) {{
+          const social = sec.social_claims.find(c => c.claim_id === claimId);
+          if (social) {{
+            claimVal = `${{social.platform || 'Social profile'}}: ${{social.url || ''}}`;
+            claimKey = 'Social profile';
+            verificationNote = social.description || 'Link found on the verified company website; account ownership was not independently verified.';
+            break;
           }}
         }}
         if (sec && sec.claim_id === claimId) {{
-          claimVal = sec.official_website || 'Verified URL';
-          claimKey = 'Official Website';
+          claimVal = sec.official_website || 'Website link';
+          claimKey = 'Website';
+          verificationNote = websiteMethodLabel(sec);
           break;
         }}
       }}
 
-      // Find source that backs this claim
       const matchingSources = (comp.sources || []).filter(s => (s.claims_backed || []).includes(claimId));
-      const primarySource = matchingSources[0] || (comp.sources || [])[0] || {{
-        url: 'https://data.brreg.no/enhetsregisteret/api/enheter/' + comp.organisation_number,
-        type: 'api',
-        retrieved_date: comp.retrieved_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-        claims_backed: [claimId]
-      }};
+      const primarySource = matchingSources[0] || null;
+      if (!primarySource) {{
+        body.innerHTML = `
+          <div class="empty-tab-state" style="margin:0;">
+            <i data-lucide="unlink" class="empty-tab-icon"></i>
+            <div class="empty-tab-title">No backing source found</div>
+            <div class="empty-tab-desc">Claim <b>${{escapeHtml(String(claimId))}}</b> is not linked to a source record. It should not be treated as evidence.</div>
+          </div>
+        `;
+        modal.style.display = 'flex';
+        lucide.createIcons();
+        return;
+      }}
 
+      const sourceStatus = typeof primarySource.status_code === 'number'
+        ? 'HTTP ' + primarySource.status_code
+        : 'Not recorded';
       body.innerHTML = `
         <div style="background:rgba(0,0,0,0.5); padding:1rem; border-radius:6px; border:1px solid var(--border-hairline); margin-bottom:1rem;">
-          <div style="display:flex; justify-content:space-between; margin-bottom:0.4rem;">
-            <span style="font-family:'JetBrains Mono'; color:#22d3ee; font-weight:700;">Claim ID: ${{claimId}}</span>
-            <span class="tag-badge blue">${{claimKey}}</span>
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.4rem; gap:0.5rem;">
+            <span style="font-family:'JetBrains Mono'; color:#22d3ee; font-weight:700;">Claim ID: ${{escapeHtml(String(claimId))}}</span>
+            <span class="tag-badge blue">${{escapeHtml(String(claimKey))}}</span>
           </div>
           <div style="font-size:0.95rem; font-weight:600; color:#fff; word-break:break-word;">Fact Value: ${{escapeHtml(String(claimVal))}}</div>
+          ${{verificationNote ? `<div style="font-size:0.74rem; color:var(--text-muted); margin-top:0.45rem;">${{escapeHtml(verificationNote)}}</div>` : ''}}
         </div>
 
         <div style="display:flex; flex-direction:column; gap:0.6rem;">
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
+          <div style="display:flex; justify-content:space-between; gap:0.75rem; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
             <span style="color:var(--text-muted);">Audited Source URL:</span>
-            <a href="${{primarySource.url}}" target="_blank" style="color:var(--accent-cyan); text-decoration:none; word-break:break-all; max-width:70%;">
-              ${{primarySource.url}} <i data-lucide="external-link" style="width:12px; height:12px; display:inline;"></i>
+            <a href="${{escapeAttr(primarySource.url)}}" target="_blank" rel="noopener" style="color:var(--accent-cyan); text-decoration:none; word-break:break-all; max-width:70%;">
+              ${{escapeHtml(primarySource.url)}} <i data-lucide="external-link" style="width:12px; height:12px; display:inline;"></i>
             </a>
           </div>
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
-            <span style="color:var(--text-muted);">Protocol / Provider:</span>
-            <span style="font-weight:600; color:#fff;">${{primarySource.type === 'api' ? 'Official BRREG Registry API' : 'Direct Verified Domain'}}</span>
+          <div style="display:flex; justify-content:space-between; gap:0.75rem; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
+            <span style="color:var(--text-muted);">Source Type:</span>
+            <span style="font-weight:600; color:#fff;">${{escapeHtml(sourceTypeLabel(primarySource.type))}}</span>
           </div>
-          <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
+          <div style="display:flex; justify-content:space-between; gap:0.75rem; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
+            <span style="color:var(--text-muted);">Source Name:</span>
+            <span style="font-weight:600; color:#fff;">${{escapeHtml(primarySource.source_name || 'Not recorded')}}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; gap:0.75rem; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
+            <span style="color:var(--text-muted);">HTTP Status:</span>
+            <span style="font-family:'JetBrains Mono'; color:${{primarySource.status_code >= 200 && primarySource.status_code < 400 ? '#34d399' : 'var(--text-secondary)'}};">${{sourceStatus}}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; gap:0.75rem; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
             <span style="color:var(--text-muted);">Retrieval Date:</span>
-            <span style="font-family:'JetBrains Mono'; color:#34d399;">${{primarySource.retrieved_date}}</span>
+            <span style="font-family:'JetBrains Mono'; color:#34d399;">${{escapeHtml(primarySource.retrieved_date || 'Not recorded')}}</span>
           </div>
-          <div style="display:flex; justify-content:space-between;">
+          <div style="display:flex; justify-content:space-between; gap:0.75rem;">
             <span style="color:var(--text-muted);">All Claims Backed by this URL:</span>
-            <span style="font-family:'JetBrains Mono'; color:#a1a1aa;">${{(primarySource.claims_backed || []).join(', ') || claimId}}</span>
+            <span style="font-family:'JetBrains Mono'; color:#a1a1aa;">${{(primarySource.claims_backed || []).map(c => escapeHtml(String(c))).join(', ') || escapeHtml(String(claimId))}}</span>
           </div>
         </div>
       `;
@@ -2380,7 +2504,12 @@ Awaiting target organization number...
 
       const compA = RAW_DATA.find(c => c.organisation_number === selA.value) || RAW_DATA[0];
       const compB = RAW_DATA.find(c => c.organisation_number === selB.value) || RAW_DATA[1] || RAW_DATA[0];
-      if (!compA || !compB) return;
+      if (!compA || !compB) {{
+        headA.innerText = 'Company A';
+        headB.innerText = 'Company B';
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:2rem;">No profiles are loaded.</td></tr>';
+        return;
+      }}
 
       const legA = compA.sections?.legal_identity?.claims || {{}};
       const legB = compB.sections?.legal_identity?.claims || {{}};
@@ -2388,9 +2517,17 @@ Awaiting target organization number...
       const accB = compB.sections?.annual_accounts?.claims || {{}};
       const sigA = compA.derived_signals || {{}};
       const sigB = compB.derived_signals || {{}};
+      const webA = compA.sections?.website || {{}};
+      const webB = compB.sections?.website || {{}};
 
       const nameA = legA.legal_name?.value || compA.organisation_number;
       const nameB = legB.legal_name?.value || compB.organisation_number;
+      const empA = typeof legA.employee_count?.value === 'number' ? legA.employee_count.value.toLocaleString() : 'Not reported';
+      const empB = typeof legB.employee_count?.value === 'number' ? legB.employee_count.value.toLocaleString() : 'Not reported';
+      const solA = sigA.negative_equity?.description || 'Not assessed';
+      const solB = sigB.negative_equity?.description || 'Not assessed';
+      const solClassA = sigA.negative_equity ? (sigA.negative_equity.value ? 'amber' : 'emerald') : 'blue';
+      const solClassB = sigB.negative_equity ? (sigB.negative_equity.value ? 'amber' : 'emerald') : 'blue';
 
       headA.innerText = nameA;
       headB.innerText = nameB;
@@ -2406,23 +2543,23 @@ Awaiting target organization number...
       tbody.innerHTML = `
         <tr>
           <td><b>Organization Number</b></td>
-          <td style="font-family:'JetBrains Mono'; color:#38bdf8;">${{compA.organisation_number}}</td>
-          <td style="font-family:'JetBrains Mono'; color:#34d399;">${{compB.organisation_number}}</td>
+          <td style="font-family:'JetBrains Mono'; color:#38bdf8;">${{escapeHtml(compA.organisation_number)}}</td>
+          <td style="font-family:'JetBrains Mono'; color:#34d399;">${{escapeHtml(compB.organisation_number)}}</td>
         </tr>
         <tr>
           <td><b>Legal Form</b></td>
-          <td>${{legA.legal_form?.description || legA.legal_form?.value || 'AS'}}</td>
-          <td>${{legB.legal_form?.description || legB.legal_form?.value || 'AS'}}</td>
+          <td>${{escapeHtml(legA.legal_form?.description || legA.legal_form?.value || 'N/A')}}</td>
+          <td>${{escapeHtml(legB.legal_form?.description || legB.legal_form?.value || 'N/A')}}</td>
         </tr>
         <tr>
           <td><b>Registered City</b></td>
-          <td>${{legA.registered_address?.value?.city || 'N/A'}}</td>
-          <td>${{legB.registered_address?.value?.city || 'N/A'}}</td>
+          <td>${{escapeHtml(legA.registered_address?.value?.city || 'N/A')}}</td>
+          <td>${{escapeHtml(legB.registered_address?.value?.city || 'N/A')}}</td>
         </tr>
         <tr>
           <td><b>Workforce Scale</b></td>
-          <td><b>${{legA.employee_count?.value ?? 0}}</b> (${{sigA.workforce_scale?.classification || 'Registered'}})</td>
-          <td><b>${{legB.employee_count?.value ?? 0}}</b> (${{sigB.workforce_scale?.classification || 'Registered'}})</td>
+          <td><b>${{empA}}</b> (${{escapeHtml(sigA.workforce_scale?.classification || 'Not reported')}})</td>
+          <td><b>${{empB}}</b> (${{escapeHtml(sigB.workforce_scale?.classification || 'Not reported')}})</td>
         </tr>
         <tr>
           <td><b>Annual Revenue</b></td>
@@ -2440,19 +2577,19 @@ Awaiting target organization number...
           <td style="font-family:'JetBrains Mono';">${{fmtM(accB.equity?.value, accB.equity?.currency)}}</td>
         </tr>
         <tr>
-          <td><b>Solvency Risk</b></td>
-          <td><span class="tag-badge ${{sigA.negative_equity?.value ? 'amber' : 'emerald'}}">${{sigA.negative_equity?.description || 'Solvent'}}</span></td>
-          <td><span class="tag-badge ${{sigB.negative_equity?.value ? 'amber' : 'emerald'}}">${{sigB.negative_equity?.description || 'Solvent'}}</span></td>
+          <td><b>Solvency Signal</b></td>
+          <td><span class="tag-badge ${{solClassA}}">${{escapeHtml(solA)}}</span></td>
+          <td><span class="tag-badge ${{solClassB}}">${{escapeHtml(solB)}}</span></td>
         </tr>
         <tr>
-          <td><b>Official Verified Domain</b></td>
-          <td>${{compA.sections?.website?.official_website ? `<a href="${{compA.sections.website.official_website}}" target="_blank" style="color:var(--accent-cyan);">${{compA.sections.website.official_website}}</a>` : 'Not Available'}}</td>
-          <td>${{compB.sections?.website?.official_website ? `<a href="${{compB.sections.website.official_website}}" target="_blank" style="color:var(--accent-cyan);">${{compB.sections.website.official_website}}</a>` : 'Not Available'}}</td>
+          <td><b>Website Link</b></td>
+          <td>${{webA.official_website ? `<a href="${{escapeAttr(webA.official_website)}}" target="_blank" rel="noopener" style="color:var(--accent-cyan);">${{escapeHtml(webA.official_website)}}</a><div style="font-size:0.68rem; color:var(--text-muted);">${{escapeHtml(websiteMethodLabel(webA))}}</div>` : 'Not available'}}</td>
+          <td>${{webB.official_website ? `<a href="${{escapeAttr(webB.official_website)}}" target="_blank" rel="noopener" style="color:var(--accent-cyan);">${{escapeHtml(webB.official_website)}}</a><div style="font-size:0.68rem; color:var(--text-muted);">${{escapeHtml(websiteMethodLabel(webB))}}</div>` : 'Not available'}}</td>
         </tr>
         <tr>
           <td><b>Profile Completeness</b></td>
-          <td><span class="tag-badge emerald">${{sigA.completeness_score?.percentage || 'Standard'}}</span></td>
-          <td><span class="tag-badge emerald">${{sigB.completeness_score?.percentage || 'Standard'}}</span></td>
+          <td><span class="tag-badge ${{sigA.completeness_score ? 'emerald' : 'blue'}}">${{escapeHtml(sigA.completeness_score?.percentage || 'Not scored')}}</span></td>
+          <td><span class="tag-badge ${{sigB.completeness_score ? 'emerald' : 'blue'}}">${{escapeHtml(sigB.completeness_score?.percentage || 'Not scored')}}</span></td>
         </tr>
       `;
     }}
@@ -2484,8 +2621,25 @@ Awaiting target organization number...
     }}
 
     function escapeHtml(str) {{
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }}
+
+    function escapeAttr(str) {{
+      return escapeHtml(str);
+    }}
+
+    document.addEventListener('click', (event) => {{
+      const chip = event.target.closest('.claim-interactive-chip');
+      if (!chip || chip.hasAttribute('onclick')) return;
+      const claimId = (chip.dataset.claimId || chip.textContent || '').trim();
+      if (!claimId || claimId === '-') return;
+      jumpToClaim(claimId);
+    }});
 
     // ==========================================
     // PAGE 2: Live Autonomous Studio Execution
@@ -2538,7 +2692,7 @@ Awaiting target organization number...
         const liveResp = await fetch(`${{baseUrl}}/api/research/${{orgnr}}`, {{ method: 'POST' }});
         if (liveResp.ok) {{
           const liveEnv = await liveResp.json();
-          appendLog('✓ Live Server Pipeline execution completed with 100% citation grounding!');
+          appendLog('✓ Live Server Pipeline execution completed and source links attached.');
           const activeSecs = Object.keys(liveEnv.sections || {{}}).filter(k => liveEnv.sections[k].status === 'available');
           appendLog(`✓ Discovered sections: ${{activeSecs.join(', ')}}`);
           appendLog(`✓ Citations: ${{liveEnv.sources?.length || 0}} verified source URLs linked.`);
@@ -2554,6 +2708,11 @@ Awaiting target organization number...
           statusPill.innerText = 'NOT FOUND';
           statusPill.style.color = '#f43f5e';
           return;
+        }} else {{
+          appendLog(`❌ Server returned HTTP ${{liveResp.status}}.`);
+          statusPill.innerText = 'SERVER ERROR';
+          statusPill.style.color = '#f43f5e';
+          return;
         }}
       }} catch (err) {{
         appendLog(`ℹ️ Live backend server offline or standalone viewer mode. Falling back to browser pipeline.`);
@@ -2561,18 +2720,19 @@ Awaiting target organization number...
 
       // 3. Client-Side Browser Fallback Pipeline
       let enhetData = null;
+      let enhetStatus = null;
       appendLog(`Querying https://data.brreg.no/enhetsregisteret/api/enheter/${{orgnr}}...`);
       try {{
         const resp = await fetch(`https://data.brreg.no/enhetsregisteret/api/enheter/${{orgnr}}`);
+        enhetStatus = resp.status;
         if (resp.ok) {{
           enhetData = await resp.json();
-          appendLog(`✓ Enhetsregisteret matched: "${{enhetData.navn}}" (${{enhetData.organisasjonsform?.kode || 'AS'}}).`);
+          appendLog(`✓ Enhetsregisteret matched: "${{escapeHtml(enhetData.navn || '')}}" (${{escapeHtml(enhetData.organisasjonsform?.kode || 'N/A')}}).`);
         }} else {{
           appendLog(`⚠️ Enhetsregisteret returned HTTP ${{resp.status}}.`);
         }}
       }} catch (e) {{
-        appendLog(`⚠️ Direct CORS request notice: using preloaded verified registry graph for ${{orgnr}}.`);
-        // Fallback to local dataset if CORS restricts
+        appendLog(`⚠️ Direct registry request unavailable; using preloaded dataset if present.`);
         const matched = RAW_DATA.find(c => c.organisation_number === orgnr);
         if (matched) {{
           lastCompiledEnvelope = matched;
@@ -2594,56 +2754,86 @@ Awaiting target organization number...
         }}
       }}
 
-      // 3. Fetch Roller (Leadership)
+      // 3. Fetch Roller (Leadership) — retrieved but not rendered in standalone fallback
       appendLog(`Querying Rolleregisteret leadership for ${{orgnr}}...`);
       let rollerData = [];
       try {{
         const rResp = await fetch(`https://data.brreg.no/enhetsregisteret/api/enheter/${{orgnr}}/roller`);
         if (rResp.ok) {{
           rollerData = await rResp.json();
-          appendLog(`✓ Rolleregisteret retrieved: ${{rollerData.length}} role groups identified.`);
+          appendLog(`✓ Rolleregisteret retrieved: ${{rollerData.length}} role groups identified (not rendered in standalone fallback).`);
         }}
       }} catch (e) {{}}
 
-      // 4. Fetch Regnskap (Accounts)
+      // 4. Fetch Regnskap (Accounts) — retrieved but not rendered in standalone fallback
       appendLog(`Querying Regnskapsregisteret annual statements for ${{orgnr}}...`);
       let regnskapData = [];
       try {{
         const accResp = await fetch(`https://data.brreg.no/regnskapsregisteret/regnskap/${{orgnr}}`);
         if (accResp.ok) {{
           regnskapData = await accResp.json();
-          appendLog(`✓ Regnskapsregisteret retrieved: ${{regnskapData.length}} accounting periods found.`);
+          appendLog(`✓ Regnskapsregisteret retrieved: ${{regnskapData.length}} accounting periods found (not rendered in standalone fallback).`);
         }}
       }} catch (e) {{}}
 
-      // 5. 3-Tier Website Verification
-      appendLog('Executing 3-Tier Website Verification Protocol...');
+      // 5. Website from registry listing (not HTTP-verified in standalone fallback)
+      appendLog('Checking registry-listed website...');
+      const today = new Date().toISOString().slice(0, 10);
       const site = enhetData.hjemmeside;
-      let websiteSection = {{ status: 'not_available', verification_method: 'not_verified' }};
+      let websiteSection = {{
+        status: 'not_available',
+        verification_method: 'not_verified',
+        reason: 'No official website registered in Enhetsregisteret'
+      }};
       if (site) {{
         const normSite = site.startsWith('http') ? site : 'https://' + site;
         websiteSection = {{
           status: 'available',
           official_website: normSite,
-          verification_method: 'tier2_registry_listed',
-          reason: 'Website listed directly in Brønnøysund Enhetsregisteret'
+          verification_method: 'registry_listed',
+          claim_id: 'c009',
+          source_url: normSite,
+          retrieved_date: today,
+          reason: 'Website listed directly in Brønnøysund Enhetsregisteret (registry link only, not HTTP-verified)',
+          claims: [{{
+            value: normSite,
+            claim_id: 'c009',
+            source_url: normSite,
+            retrieved_date: today,
+            status: 'available',
+            description: 'Website link found in Enhetsregisteret'
+          }}]
         }};
-        appendLog(`✓ Tier 2 Website Verified: "${{normSite}}"`);
+        appendLog(`ℹ️ Registry website recorded: "${{escapeHtml(normSite)}}"`);
       }} else {{
         appendLog('ℹ️ No official website registered in Enhetsregisteret.');
       }}
 
-      // 6. Synthesis Engine
+      // 6. Synthesis Engine — deterministic, citation-grounded, no solvency guarantees
       appendLog('Synthesizing executive briefing with grounded claim citations...');
       const provider = localStorage.getItem('sp_provider') || 'template';
       const apiKey = localStorage.getItem('sp_key') || '';
       let synthesisText = '';
 
-      const empCount = enhetData.antallAnsatte || 0;
-      const formDesc = enhetData.organisasjonsform?.beskrivelse || 'Aksjeselskap';
+      const empCount = typeof enhetData.antallAnsatte === 'number' ? enhetData.antallAnsatte : null;
+      const formDesc = enhetData.organisasjonsform?.beskrivelse || 'N/A';
+      const street = enhetData.forretningsadresse?.adresse?.[0] || '';
+      const postal = enhetData.forretningsadresse?.postnummer || '';
       const city = enhetData.forretningsadresse?.poststed || enhetData.postadresse?.poststed || '';
+      const addressText = `${{escapeHtml(street)}} ${{escapeHtml(postal)}} ${{escapeHtml(city)}}`.trim() || 'recorded address in Enhetsregisteret';
 
-      const draftSynthesis = `${{enhetData.navn}} [c001] is a registered Norwegian ${{formDesc}} [c002] headquartered in ${{city}} [c004]. The enterprise employs approximately ${{empCount.toLocaleString()}} personnel [c006]. Status confirmed active and solvent in Foretaksregisteret.`;
+      const bankrupt = Boolean(enhetData.konkurs);
+      const liquidation = Boolean(enhetData.underAvvikling);
+      const insolvencyText = bankrupt
+        ? 'Bankruptcy flag recorded in Foretaksregisteret [c007].'
+        : liquidation
+          ? 'Liquidation flag recorded in Foretaksregisteret [c008].'
+          : 'No bankruptcy or liquidation flag recorded [c007] [c008].';
+      const empText = empCount === null
+        ? 'Workforce size is not registered in Enhetsregisteret [c006].'
+        : `The enterprise employs approximately ${{empCount.toLocaleString()}} personnel [c006].`;
+
+      const draftSynthesis = `${{escapeHtml(enhetData.navn || orgnr)}} [c001] is registered as ${{escapeHtml(formDesc)}} [c002]. Registered address: ${{addressText}} [c004]. Registered in Enhetsregisteret on ${{escapeHtml(enhetData.registreringsdatoEnhetsregisteret || 'an unrecorded date')}} [c003]. ${{empText}} ${{insolvencyText}}`;
 
       if (provider !== 'template' && apiKey) {{
         appendLog(`Calling ${{provider.toUpperCase()}} (${{localStorage.getItem('sp_model') || 'AI'}})...`);
@@ -2675,8 +2865,12 @@ Awaiting target organization number...
         }}
       }} else {{
         synthesisText = draftSynthesis;
-        appendLog('✓ Deterministic Template Synthesis compiled ($0 cost, 100% grounded).');
+        appendLog('✓ Deterministic Template Synthesis compiled ($0 cost, deterministic claims only).');
       }}
+
+      const srcUrl = `https://data.brreg.no/enhetsregisteret/api/enheter/${{orgnr}}`;
+      const sourceClaims = ['c001', 'c002', 'c003', 'c004', 'c006', 'c007', 'c008'];
+      if (site) sourceClaims.push('c009');
 
       // Assemble Envelope
       const newEnvelope = {{
@@ -2687,12 +2881,13 @@ Awaiting target organization number...
           legal_identity: {{
             status: 'available',
             claims: {{
-              legal_name: {{ value: enhetData.navn, claim_id: 'c001', status: 'available' }},
-              legal_form: {{ value: enhetData.organisasjonsform?.kode, description: formDesc, claim_id: 'c002', status: 'available' }},
-              incorporation_date: {{ value: enhetData.registreringsdatoEnhetsregisteret, claim_id: 'c003', status: 'available' }},
-              registered_address: {{ value: {{ city: city, street: enhetData.forretningsadresse?.adresse?.[0] || '' }}, claim_id: 'c004', status: 'available' }},
-              employee_count: {{ value: empCount, claim_id: 'c006', status: 'available' }},
-              is_bankrupt: {{ value: Boolean(enhetData.konkurs), claim_id: 'c007', status: 'available' }}
+              legal_name: {{ value: enhetData.navn, claim_id: 'c001', source_url: srcUrl, retrieved_date: today, status: 'available' }},
+              legal_form: {{ value: enhetData.organisasjonsform?.kode, description: formDesc, claim_id: 'c002', source_url: srcUrl, retrieved_date: today, status: 'available' }},
+              incorporation_date: {{ value: enhetData.registreringsdatoEnhetsregisteret, claim_id: 'c003', source_url: srcUrl, retrieved_date: today, status: 'available' }},
+              registered_address: {{ value: {{ city: city, street: street }}, claim_id: 'c004', source_url: srcUrl, retrieved_date: today, status: 'available' }},
+              employee_count: {{ value: empCount, claim_id: 'c006', source_url: srcUrl, retrieved_date: today, status: empCount === null ? 'not_applicable' : 'available' }},
+              is_bankrupt: {{ value: bankrupt, claim_id: 'c007', source_url: srcUrl, retrieved_date: today, status: 'available' }},
+              is_under_liquidation: {{ value: liquidation, claim_id: 'c008', source_url: srcUrl, retrieved_date: today, status: 'available' }}
             }}
           }},
           annual_accounts: {{ status: 'not_available', claims: {{}} }},
@@ -2702,14 +2897,14 @@ Awaiting target organization number...
           website: websiteSection
         }},
         derived_signals: {{
-          workforce_scale: {{ value: empCount, classification: empCount >= 50 ? 'Medium/Large Enterprise' : 'Small Enterprise' }}
+          workforce_scale: {{ value: empCount, classification: empCount === null ? 'Not reported' : (empCount >= 50 ? 'Medium/Large Enterprise' : 'Small Enterprise') }}
         }},
         synthesis: {{
           text: synthesisText,
-          claim_references: ['c001', 'c002', 'c004', 'c006', 'c007']
+          claim_references: ['c001', 'c002', 'c003', 'c004', 'c006', 'c007', 'c008']
         }},
         sources: [
-          {{ url: `https://data.brreg.no/enhetsregisteret/api/enheter/${{orgnr}}`, type: 'api', retrieved_date: new Date().toISOString().slice(0, 10), claims_backed: ['c001', 'c002', 'c003', 'c004', 'c006', 'c007'] }}
+          {{ url: srcUrl, type: 'api', source_name: 'Brønnøysund Enhetsregisteret', status_code: enhetStatus ?? null, retrieved_date: today, claims_backed: sourceClaims }}
         ]
       }};
 
@@ -2717,7 +2912,7 @@ Awaiting target organization number...
 
       function finishExecution(env) {{
         lastCompiledEnvelope = env;
-        appendLog(`[COMPLETE] Verified envelope compiled successfully with ${{env.synthesis.claim_references.length}} backed claims!`);
+        appendLog(`[COMPLETE] Envelope compiled with ${{env.synthesis.claim_references.length}} cited claim references!`);
         statusPill.innerText = 'RESEARCH COMPLETE';
         statusPill.style.color = '#34d399';
 
@@ -2726,7 +2921,7 @@ Awaiting target organization number...
 
         previewBox.innerHTML = `
           <div style="text-align:left; line-height:1.5;">
-            <div style="font-weight:700; color:#fff; font-size:0.95rem; margin-bottom:0.3rem;">${{env.sections.legal_identity?.claims?.legal_name?.value || env.organisation_number}}</div>
+            <div style="font-weight:700; color:#fff; font-size:0.95rem; margin-bottom:0.3rem;">${{escapeHtml(env.sections.legal_identity?.claims?.legal_name?.value || env.organisation_number)}}</div>
             <div style="color:#38bdf8; font-family:'JetBrains Mono'; font-size:0.8rem; margin-bottom:0.6rem;">ORG: ${{env.organisation_number}}</div>
             <div style="color:#d4d4d8; font-size:0.8rem; line-height:1.6; margin-bottom:0.85rem; padding:0.65rem 0.85rem; background:rgba(0,0,0,0.3); border:1px solid var(--border-hairline); border-radius:6px;">${{styledText}}</div>
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
@@ -2737,11 +2932,36 @@ Awaiting target organization number...
         btnView.style.display = 'inline-flex';
         lucide.createIcons();
 
-        // Also add to global dataset if not existing
-        if (!RAW_DATA.some(c => c.organisation_number === env.organisation_number)) {{
+        const idx = RAW_DATA.findIndex(c => c.organisation_number === env.organisation_number);
+        if (idx >= 0) {{
+          RAW_DATA[idx] = env;
+          const fIdx = filteredData.findIndex(c => c.organisation_number === env.organisation_number);
+          if (fIdx >= 0) filteredData[fIdx] = env;
+        }} else {{
           RAW_DATA.unshift(env);
           filteredData.unshift(env);
-          renderFeed();
+        }}
+        renderFeed();
+        populateComparisonDropdowns();
+        selectCompany(env.organisation_number);
+
+        const totalEl = document.getElementById('tele-total');
+        const webEl = document.getElementById('tele-web');
+        const claimsEl = document.getElementById('tele-claims');
+        if (totalEl) totalEl.innerText = RAW_DATA.length.toLocaleString();
+        if (webEl) {{
+          const wc = RAW_DATA.filter(c => c.sections?.website?.status === 'available').length;
+          webEl.innerText = wc.toLocaleString();
+        }}
+        if (claimsEl) {{
+          let totalClaims = 0;
+          RAW_DATA.forEach(c => {{
+            for (const s of Object.values(c.sections || {{}})) {{
+              if (s?.claims) totalClaims += Array.isArray(s.claims) ? s.claims.length : Object.keys(s.claims).length;
+              if (Array.isArray(s?.social_claims)) totalClaims += s.social_claims.length;
+            }}
+          }});
+          claimsEl.innerText = totalClaims.toLocaleString();
         }}
       }}
     }}
@@ -2755,14 +2975,19 @@ Awaiting target organization number...
 
     function loadCompiledToExplorer() {{
       if (!lastCompiledEnvelope) return;
-      const explorerBtn = document.querySelectorAll('.nav-page-btn')[0];
-      navigatePage('explorer', explorerBtn);
+      navigatePage('explorer');
       const orgnr = lastCompiledEnvelope.organisation_number;
-      if (!RAW_DATA.some(c => c.organisation_number === orgnr)) {{
+      const idx = RAW_DATA.findIndex(c => c.organisation_number === orgnr);
+      if (idx >= 0) {{
+        RAW_DATA[idx] = lastCompiledEnvelope;
+        const fIdx = filteredData.findIndex(c => c.organisation_number === orgnr);
+        if (fIdx >= 0) filteredData[fIdx] = lastCompiledEnvelope;
+      }} else {{
         RAW_DATA.unshift(lastCompiledEnvelope);
         filteredData.unshift(lastCompiledEnvelope);
-        renderFeed();
       }}
+      renderFeed();
+      populateComparisonDropdowns();
       selectCompany(orgnr);
     }}
 

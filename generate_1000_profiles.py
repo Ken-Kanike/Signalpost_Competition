@@ -1,7 +1,10 @@
-"""Bulk Profile Generator for 1,000+ Norwegian Companies.
-Uses the full Orchestrator pipeline with all official BRREG collectors,
-strict website verification, handle-validated social links, dated news,
-and individual vacancy postings.
+"""Bulk Profile Generator for 1,000 Norwegian Companies.
+Uses the Orchestrator pipeline within the competition quota:
+2 requests per company (Enhetsregisteret + Rolleregisteret) = 2,000 requests.
+Includes legal identity, leadership, registry-listed website links, and
+derived signals. Annual accounts, news, hiring, and social verification are
+not part of this baseline batch run; they remain available for on-demand
+deep research within remaining quotas.
 Fulfills the competition deliverable: 'At least 1,000 company profiles'.
 """
 

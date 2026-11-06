@@ -29,16 +29,32 @@ class Normalizer:
     def __init__(self):
         self.claim_counter = 0
         self.sources_map: dict[str, set[str]] = {}  # url -> set of claim_ids
+        self.sources_meta: dict[str, dict[str, Any]] = {}  # url -> status/type metadata
 
     def _next_claim_id(self) -> str:
         self.claim_counter += 1
         return f"c{self.claim_counter:03d}"
 
-    def _register_source(self, url: Optional[str], claim_id: str) -> None:
-        if url:
-            if url not in self.sources_map:
-                self.sources_map[url] = set()
-            self.sources_map[url].add(claim_id)
+    def _register_source(
+        self,
+        url: Optional[str],
+        claim_id: str,
+        status_code: Optional[int] = None,
+        source_type: Optional[str] = None,
+    ) -> None:
+        if not url:
+            return
+        if url not in self.sources_map:
+            self.sources_map[url] = set()
+            self.sources_meta[url] = {
+                "status_code": status_code,
+                "type": source_type,
+            }
+        self.sources_map[url].add(claim_id)
+        if status_code is not None:
+            self.sources_meta[url]["status_code"] = status_code
+        if source_type:
+            self.sources_meta[url]["type"] = source_type
 
     def normalize(
         self,
@@ -57,6 +73,7 @@ class Normalizer:
         """Normalize all collected raw data into typed envelope sections."""
         self.claim_counter = 0
         self.sources_map = {}
+        self.sources_meta = {}
         today = get_current_date_str()
         clean_org = clean_org_number(orgnr)
 
@@ -98,15 +115,60 @@ class Normalizer:
         # 8. News Section
         sections["news"] = self._normalize_news(news_raw or {}, clean_org, today)
 
+        # Attach known HTTP status codes to source URLs from the collectors.
+        raw_sources = [
+            enhet_raw,
+            roller_raw,
+            regnskap_raw,
+            underenheter_raw,
+            announcements_raw,
+            website_raw,
+            jobs_raw,
+            news_raw or {},
+            proff_raw or {},
+        ]
+        for raw in raw_sources:
+            if not isinstance(raw, dict):
+                continue
+            source_url = raw.get("source_url") or raw.get("url")
+            status_code = raw.get("status_code")
+            if source_url and status_code is not None:
+                self.sources_meta.setdefault(source_url, {})
+                self.sources_meta[source_url]["status_code"] = status_code
+
         # Build Source Records
         source_records: list[SourceRecord] = []
         for url, claims_set in self.sources_map.items():
-            stype = "api" if "data.brreg.no" in url else "website"
+            meta = self.sources_meta.get(url, {})
+            stype = meta.get("type")
+            if not stype:
+                if "data.brreg.no" in url or "w2.brreg.no" in url:
+                    stype = "api"
+                elif any(host in url for host in (
+                    "linkedin.com", "facebook.com", "instagram.com",
+                    "twitter.com", "x.com", "youtube.com", "github.com",
+                )):
+                    stype = "website"
+                else:
+                    stype = "website"
+            source_name = None
+            if "data.brreg.no/enhetsregisteret" in url:
+                source_name = "Brønnøysundregistrene (Enhetsregisteret)"
+            elif "regnskapsregisteret" in url:
+                source_name = "Brønnøysundregistrene (Regnskapsregisteret)"
+            elif "w2.brreg.no" in url:
+                source_name = "Brønnøysundregistrene (Kunngjøringer)"
+            elif "proff.no" in url:
+                source_name = "Proff.no"
+            elif stype == "website":
+                source_name = "Company website"
             source_records.append(
                 SourceRecord(
                     url=url,
                     type=stype,
+                    source_name=source_name,
                     retrieved_date=today,
+                    status_code=meta.get("status_code"),
                     claims_backed=sorted(list(claims_set)),
                 )
             )
@@ -210,30 +272,47 @@ class Normalizer:
 
         # Employees
         emp_count = data.get("antallAnsatte")
+        has_registered_employees = data.get("harRegistrertAntallAnsatte")
         orgform_code = (data.get("organisasjonsform", {}).get("kode") or "").upper()
-        is_foreign = orgform_code in ("NUF", "FLI", "UTL")
+        is_foreign = orgform_code in ("NUF", "UTLA", "UTL")
+        is_association = orgform_code == "FLI"
 
-        # For foreign entities or when zero on a foreign entity / unspecified, treat as unknown/not registered
-        if is_foreign and (emp_count is None or emp_count == 0):
+        # BRREG omits antallAnsatte when nothing has been reported. A missing value
+        # is not zero. Treat it as unknown/not-applicable, never as "0 employees".
+        if emp_count is None or (emp_count == 0 and not has_registered_employees):
             cid = self._next_claim_id()
             self._register_source(source_url, cid)
+            if is_foreign:
+                status = "not_applicable"
+                description = "Employee count not reported in Norway (foreign entity / branch)"
+            elif is_association:
+                status = "not_applicable"
+                description = "Employee count is not applicable/reported for this association (FLI)"
+            else:
+                status = "unknown"
+                description = "Employee count not disclosed in Enhetsregisteret"
             claims["employee_count"] = {
                 "value": None,
                 "claim_id": cid,
                 "source_url": source_url,
                 "retrieved_date": today,
-                "status": "not_applicable",
-                "description": "Employee count not registered in Norway (foreign entity / NUF)",
+                "status": status,
+                "description": description,
             }
         else:
             cid = self._next_claim_id()
             self._register_source(source_url, cid)
             claims["employee_count"] = {
-                "value": emp_count if emp_count is not None else 0,
+                "value": emp_count,
                 "claim_id": cid,
                 "source_url": source_url,
                 "retrieved_date": today,
                 "status": "available",
+                "description": (
+                    "Zero employees registered in Enhetsregisteret (may be unreported)"
+                    if emp_count == 0
+                    else "Employees registered in Enhetsregisteret"
+                ),
             }
 
         # Insolvency / Liquidation flags
@@ -297,6 +376,47 @@ class Normalizer:
             self._register_source(source_url, cid)
             claims["vat_registered"] = {
                 "value": bool(vat_reg),
+                "claim_id": cid,
+                "source_url": source_url,
+                "retrieved_date": today,
+                "status": "available",
+            }
+
+        # Registered activity description
+        activities = data.get("aktivitet", [])
+        activity_values = [
+            normalize_norwegian_text(a.get("tekst"))
+            for a in activities
+            if isinstance(a, dict) and a.get("tekst")
+        ] if isinstance(activities, list) else []
+        if activity_values:
+            cid = self._next_claim_id()
+            self._register_source(source_url, cid)
+            claims["activity_description"] = {
+                "value": activity_values,
+                "claim_id": cid,
+                "source_url": source_url,
+                "retrieved_date": today,
+                "status": "available",
+            }
+
+        # Registry contact details (only when published by BRREG)
+        if data.get("epostadresse"):
+            cid = self._next_claim_id()
+            self._register_source(source_url, cid)
+            claims["registered_email"] = {
+                "value": data["epostadresse"].strip(),
+                "claim_id": cid,
+                "source_url": source_url,
+                "retrieved_date": today,
+                "status": "available",
+            }
+        phone = data.get("telefon") or data.get("mobil")
+        if phone:
+            cid = self._next_claim_id()
+            self._register_source(source_url, cid)
+            claims["registered_phone"] = {
+                "value": str(phone).strip(),
                 "claim_id": cid,
                 "source_url": source_url,
                 "retrieved_date": today,
@@ -492,6 +612,9 @@ class Normalizer:
                             "name": normalize_norwegian_text(full_name),
                             "role": normalize_norwegian_text(role_desc),
                             "claim_id": cid,
+                            "source_url": source_url,
+                            "retrieved_date": today,
+                            "status": "available",
                         })
 
         # USP 6: If BRREG lists no roles (e.g. privacy redaction), check supplementary Proff.no
@@ -507,6 +630,9 @@ class Normalizer:
                         "name": normalize_norwegian_text(off_name),
                         "role": normalize_norwegian_text(off_role),
                         "claim_id": cid,
+                        "source_url": proff_url,
+                        "retrieved_date": today,
+                        "status": "available",
                     })
 
         if not leadership_claims:
@@ -551,9 +677,12 @@ class Normalizer:
             workplaces.append({
                 "org_number": u.get("organisasjonsnummer"),
                 "name": normalize_norwegian_text(u.get("navn")),
-                "employee_count": u.get("antallAnsatte", 0),
+                "employee_count": u.get("antallAnsatte"),
                 "municipality": u.get("beliggenhetsadresse", {}).get("kommune"),
                 "claim_id": cid,
+                "source_url": source_url,
+                "retrieved_date": today,
+                "status": "available",
             })
 
         return {
@@ -572,29 +701,106 @@ class Normalizer:
     ) -> dict[str, Any]:
         status = website_raw.get("status", "not_available")
         official_url = website_raw.get("official_website")
+        verification_method = website_raw.get("verification_method", "not_verified")
 
         if status != "available" or not official_url:
             return {
                 "status": "not_available",
-                "verification_method": website_raw.get("verification_method", "not_verified"),
+                "verification_method": verification_method,
                 "official_website": None,
-                "reason": website_raw.get("reason", "No verified website"),
+                "reason": website_raw.get("reason", "No website listed or verified"),
             }
 
+        registry_listed = verification_method == "registry_listed"
+        source_url = website_raw.get("source_url") or official_url
         cid = self._next_claim_id()
-        self._register_source(official_url, cid)
+        self._register_source(source_url, cid)
+        website_claim = {
+            "value": official_url,
+            "claim_id": cid,
+            "source_url": source_url,
+            "retrieved_date": today,
+            "status": "available",
+            "verification_method": verification_method,
+            "description": (
+                "Website listed on the BRREG entity record"
+                if registry_listed
+                else "Website verified against company registry data"
+            ),
+        }
+
+        social_claims: list[dict[str, Any]] = []
+        if not registry_listed:
+            for social_url in web_enrichment_raw.get("social_profiles", []) or []:
+                social_cid = self._next_claim_id()
+                self._register_source(official_url, social_cid)
+                platform = self._social_platform(social_url)
+                social_claims.append({
+                    "platform": platform,
+                    "url": social_url,
+                    "claim_id": social_cid,
+                    "source_url": official_url,
+                    "retrieved_date": today,
+                    "status": "available",
+                    "description": "Social link found on the verified company website",
+                })
+
+        contact_claims: list[dict[str, Any]] = []
+        email = web_enrichment_raw.get("contact_email")
+        phone = web_enrichment_raw.get("contact_phone")
+        if email and not registry_listed:
+            contact_cid = self._next_claim_id()
+            self._register_source(official_url, contact_cid)
+            contact_claims.append({
+                "value": email,
+                "type": "email",
+                "claim_id": contact_cid,
+                "source_url": official_url,
+                "retrieved_date": today,
+                "status": "available",
+            })
+        if phone and not registry_listed:
+            contact_cid = self._next_claim_id()
+            self._register_source(official_url, contact_cid)
+            contact_claims.append({
+                "value": phone,
+                "type": "phone",
+                "claim_id": contact_cid,
+                "source_url": official_url,
+                "retrieved_date": today,
+                "status": "available",
+            })
 
         return {
             "status": "available",
-            "verification_method": website_raw.get("verification_method"),
+            "verification_method": verification_method,
             "official_website": official_url,
             "claim_id": cid,
+            "source_url": source_url,
+            "claims": [website_claim] + contact_claims,
             "description": web_enrichment_raw.get("description"),
-            "social_profiles": web_enrichment_raw.get("social_profiles", []),
-            "contact_email": web_enrichment_raw.get("contact_email"),
-            "contact_phone": web_enrichment_raw.get("contact_phone"),
+            "social_profiles": web_enrichment_raw.get("social_profiles", []) if not registry_listed else [],
+            "social_claims": social_claims,
+            "contact_email": email if not registry_listed else None,
+            "contact_phone": phone if not registry_listed else None,
             "reason": website_raw.get("reason"),
+            "retrieved_date": today,
         }
+
+    @staticmethod
+    def _social_platform(url: str) -> str:
+        lowered = (url or "").lower()
+        for platform, markers in (
+            ("LinkedIn", ("linkedin.com",)),
+            ("Facebook", ("facebook.com", "fb.com")),
+            ("Instagram", ("instagram.com",)),
+            ("X/Twitter", ("twitter.com", "x.com")),
+            ("YouTube", ("youtube.com", "youtu.be")),
+            ("GitHub", ("github.com",)),
+        ):
+            if any(marker in lowered for marker in markers):
+                return platform
+        return "Social"
 
     def _normalize_hiring(
         self, jobs_raw: dict[str, Any], orgnr: str, today: str
@@ -612,12 +818,16 @@ class Normalizer:
 
         formatted_claims = []
         for j in claims_list:
+            claim_source = j.get("source_url") or j.get("url") or source_url
             cid = self._next_claim_id()
-            self._register_source(source_url or j.get("url"), cid)
+            self._register_source(claim_source, cid)
             formatted_claims.append({
                 "title": j.get("title"),
                 "url": j.get("url"),
                 "claim_id": cid,
+                "source_url": claim_source,
+                "retrieved_date": today,
+                "status": "available",
             })
 
         return {
@@ -652,6 +862,9 @@ class Normalizer:
                 "type": it.get("type"),
                 "description": it.get("description"),
                 "claim_id": cid,
+                "source_url": source_url,
+                "retrieved_date": today,
+                "status": "available",
             })
 
         return {
@@ -677,13 +890,17 @@ class Normalizer:
 
         formatted_claims = []
         for n in claims_list:
+            claim_source = n.get("source_url") or n.get("url") or source_url
             cid = self._next_claim_id()
-            self._register_source(source_url or n.get("url"), cid)
+            self._register_source(claim_source, cid)
             formatted_claims.append({
                 "title": n.get("title"),
                 "url": n.get("url"),
                 "published_date": n.get("published_date"),
                 "claim_id": cid,
+                "source_url": claim_source,
+                "retrieved_date": today,
+                "status": "available",
             })
 
         return {
