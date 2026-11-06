@@ -245,6 +245,79 @@ class TestReviewerFixes(unittest.TestCase):
         asyncio.run(_run())
 
 
+    def test_bql_oslo_vs_bergen_quiltelag_rejected(self):
+        """Verify bql.no (Bergen Quiltelag) is rejected when evaluating BQL AS (Oslo)."""
+        verifier = WebsiteVerifier()
+        # Page mentions Bergen and Quiltelag, but BQL AS is an Oslo company
+        html_bql_club = """
+        <html>
+            <head><title>Bergen Quiltelag - Hjem</title></head>
+            <body>
+                <h1>Velkommen til Bergen Quiltelag</h1>
+                <p>Vi er en forening for quilting i Bergen.</p>
+                <footer>Møter i Bergen sentrum</footer>
+            </body>
+        </html>
+        """
+        # 1. Location mismatch check
+        self.assertFalse(verifier._check_location_compatible(html_bql_club, "Oslo", "Oslo", "0150"))
+        # 2. Club mismatch check
+        self.assertTrue(verifier._is_club_or_association_mismatch(html_bql_club, "AS"))
+
+    def test_nace_00000_placeholder_filtered(self):
+        """Verify placeholder NACE 00.000 / Uoppgitt is excluded from legal identity claims."""
+        normalizer = Normalizer()
+        enhet_raw = {
+            "available": True,
+            "url": "https://data.brreg.no/enhetsregisteret/api/enheter/999999999",
+            "data": {
+                "navn": "Test Selskap AS",
+                "organisasjonsform": {"kode": "AS", "beskrivelse": "Aksjeselskap"},
+                "naeringskode1": {"kode": "00.000", "beskrivelse": "Uoppgitt"},
+                "antallAnsatte": 5,
+            },
+        }
+        sec = normalizer._normalize_legal_identity(enhet_raw, "999999999", "2026-11-06")
+        claims = sec.get("claims", {})
+        self.assertNotIn("industry_codes", claims)
+
+    def test_nuf_zero_employees_handled_as_not_applicable(self):
+        """Verify NUF with 0 employees is treated as not_applicable / foreign, not misleading 0 workers."""
+        normalizer = Normalizer()
+        enhet_raw = {
+            "available": True,
+            "url": "https://data.brreg.no/enhetsregisteret/api/enheter/888888888",
+            "data": {
+                "navn": "Foreign Entity Branch NUF",
+                "organisasjonsform": {"kode": "NUF", "beskrivelse": "Norsk avdeling av utenlandsk foretak"},
+                "antallAnsatte": 0,
+            },
+        }
+        sec = normalizer._normalize_legal_identity(enhet_raw, "888888888", "2026-11-06")
+        claims = sec.get("claims", {})
+        emp_claim = claims.get("employee_count", {})
+        self.assertEqual(emp_claim.get("status"), "not_applicable")
+        self.assertIsNone(emp_claim.get("value"))
+
+    def test_synthesizer_excludes_uoppgitt_nace(self):
+        """Verify synthesizer does not include Uoppgitt NACE code in synthesized briefing."""
+        from synthesizer import Synthesizer
+        synth = Synthesizer(mode="template")
+        sections = {
+            "legal_identity": {
+                "status": "available",
+                "claims": {
+                    "legal_name": {"value": "Acme AS", "claim_id": "c001"},
+                    "legal_form": {"value": "AS", "description": "Aksjeselskap", "claim_id": "c002"},
+                    "registered_address": {"value": {"city": "Oslo"}, "claim_id": "c003"},
+                },
+            }
+        }
+        res = synth.synthesize("999999999", sections, {})
+        self.assertNotIn("00.000", res.text)
+        self.assertNotIn("Uoppgitt", res.text)
+
+
 if __name__ == "__main__":
     unittest.main()
 

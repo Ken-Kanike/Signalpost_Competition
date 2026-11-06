@@ -132,6 +132,14 @@ class WebsiteVerifier:
         clean_org = clean_org_number(orgnr)
         registry_site, candidates = self.extract_candidates_from_registry(enhet_data)
 
+        # Extract address details for location cross-check
+        forretningsadr = enhet_data.get("forretningsadresse") or {}
+        postadr = enhet_data.get("postadresse") or {}
+        registered_city = (forretningsadr.get("poststed") or postadr.get("poststed") or "").strip().lower()
+        registered_municipality = (forretningsadr.get("kommune") or postadr.get("kommune") or "").strip().lower()
+        registered_postal = (forretningsadr.get("postnummer") or postadr.get("postnummer") or "").strip()
+        orgform_code = (enhet_data.get("organisasjonsform", {}).get("kode") or "").upper()
+
         # Check offline fixture
         if self.fixture_manager and self.fixture_manager.is_replaying():
             cached = self.fixture_manager.load_fixture(clean_org, "website_verification")
@@ -209,6 +217,12 @@ class WebsiteVerifier:
                         self._maybe_save_fixture(clean_org, result)
                         return result
 
+                    # Guard against non-orgnr false matches (e.g. BQL AS vs Bergen Quiltelag)
+                    # If orgnr is NOT on page, we must check for club/association mismatches and town conflicts
+                    if self._is_club_or_association_mismatch(html, orgform_code):
+                        logger.debug(f"Rejecting candidate {candidate_url} for {clean_org}: club/association detected on page for commercial entity")
+                        continue
+
                     # 2. Tier 2: Check if this was the registry-listed website with ownership verification
                     if registry_site and self._is_same_host(candidate_url, registry_site):
                         ownership = self._check_site_ownership(html, clean_org, company_name)
@@ -231,15 +245,20 @@ class WebsiteVerifier:
                             # Ambiguous: neither orgnr nor distinctive name found on page
                             continue
 
-                    # 3. Tier 3: Distinctive name match + no conflicting orgnr
+                    # 3. Tier 3: Distinctive name match + no conflicting orgnr + location verification
                     conflicting_org = self._find_conflicting_orgnr(html, clean_org)
                     if not conflicting_org and self._check_name_in_html(html, company_name):
+                        # Strict town/city check to prevent false attributions like bql.no (Bergen Quiltelag vs BQL AS in Oslo)
+                        if not self._check_location_compatible(html, registered_city, registered_municipality, registered_postal):
+                            logger.debug(f"Candidate {candidate_url} rejected for {clean_org}: location mismatch with {registered_city}/{registered_municipality}")
+                            continue
+
                         result = {
                             "status": "available",
                             "verification_method": "tier3_name_proven",
                             "official_website": self._clean_final_url(final_url),
                             "html": html,
-                            "reason": "High-confidence distinctive name match without conflicting orgnr",
+                            "reason": "High-confidence distinctive name and location match without conflicting orgnr",
                         }
                         self._maybe_save_fixture(clean_org, result)
                         return result
@@ -258,6 +277,54 @@ class WebsiteVerifier:
         }
         self._maybe_save_fixture(clean_org, unverified_result)
         return unverified_result
+
+    def _is_club_or_association_mismatch(self, html: str, orgform: str) -> bool:
+        """Check if site appears to be a hobby club, quiltelag, idrettslag, or association when entity is commercial."""
+        if orgform in ("AS", "ASA", "BA", "DA", "ANS", "NUF", "ENK"):
+            lower = html.lower()
+            # Common hobby club words in Norwegian
+            club_indicators = ["quiltelag", "husflidslag", "idrettslag", "bridgeklubb", "sjakklubb", "skytterlag", "borettslag"]
+            for ci in club_indicators:
+                if ci in lower:
+                    return True
+        return False
+
+    def _check_location_compatible(
+        self, html: str, registered_city: str, registered_municipality: str, registered_postal: str
+    ) -> bool:
+        """Verify candidate website mentions registered city/municipality, or doesn't explicitly belong to a conflicting city."""
+        lower_html = html.lower()
+        
+        # Major distinct Norwegian cities
+        major_cities = [
+            "oslo", "bergen", "trondheim", "stavanger", "tromsø", "tromso",
+            "drammen", "kristiansand", "ålesund", "alesund", "haugesund",
+            "bodø", "bodo", "arendal", "hamar", "larvik", "halden"
+        ]
+
+        # If registered location is known
+        reg_tokens = set()
+        if registered_city:
+            reg_tokens.add(normalize_norwegian_text(registered_city).lower())
+        if registered_municipality:
+            reg_tokens.add(normalize_norwegian_text(registered_municipality).lower())
+        if registered_postal:
+            reg_tokens.add(registered_postal)
+
+        # Check if any registered location matches on page
+        has_reg_match = any(tok in lower_html for tok in reg_tokens if len(tok) >= 3)
+        if has_reg_match:
+            return True
+
+        # If registered city is a major city (e.g. Oslo) and page prominently mentions a DIFFERENT major city (e.g. Bergen)
+        # without mentioning the registered city, consider it a mismatch
+        for mc in major_cities:
+            if mc in lower_html and mc not in reg_tokens:
+                # Page clearly identifies with another major city
+                return False
+
+        # If no conflicting city is found and target is not in a major city, allow if company name was strong
+        return True
 
     def _check_site_ownership(self, html: str, orgnr: str, company_name: str) -> str:
         """Verify site ownership: 'confirmed', 'name_match', 'parent_group', or 'ambiguous'."""

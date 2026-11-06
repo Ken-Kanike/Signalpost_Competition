@@ -97,11 +97,18 @@ class ViewerGenerator:
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg-pitch);
       color: var(--text-primary);
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
+    }}
+
+    @media (min-width: 769px) {{
+      body {{
+        height: 100vh;
+        overflow: hidden;
+      }}
     }}
 
     /* Top Navigation Header */
@@ -1015,6 +1022,86 @@ class ViewerGenerator:
       align-items: center;
       gap: 0.5rem;
     }}
+
+    /* Source Check Modal ($500 JBOX UX requirement) */
+    .modal-overlay {{
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }}
+    .modal-box {{
+      background: var(--bg-surface);
+      border: 1px solid var(--border-mid);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 620px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.7);
+    }}
+
+    /* Mobile & Responsive Adaptations */
+    @media (max-width: 768px) {{
+      header {{
+        padding: 0.6rem 1rem;
+        flex-direction: column;
+        gap: 0.75rem;
+      }}
+      .header-left-cluster {{
+        width: 100%;
+        justify-content: space-between;
+      }}
+      .top-nav-pages {{
+        overflow-x: auto;
+        width: 100%;
+        padding-bottom: 0.25rem;
+      }}
+      .header-ticker {{
+        display: none;
+      }}
+      .terminal-body {{
+        height: auto !important;
+        overflow-y: visible !important;
+      }}
+      #page-explorer.active {{
+        grid-template-columns: 1fr;
+      }}
+      .terminal-sidebar {{
+        border-right: none;
+        border-bottom: 1px solid var(--border-hairline);
+        max-height: 480px;
+      }}
+      .terminal-stage {{
+        padding: 1rem;
+      }}
+      .kpi-metric-strip {{
+        grid-template-columns: repeat(2, 1fr);
+      }}
+      .hero-flex-header {{
+        flex-direction: column;
+      }}
+      .hero-actions-cluster {{
+        width: 100%;
+        flex-wrap: wrap;
+      }}
+      .page-grid-layout {{
+        grid-template-columns: 1fr;
+      }}
+      .studio-form-grid {{
+        grid-template-columns: 1fr;
+      }}
+      footer {{
+        flex-direction: column;
+        gap: 0.4rem;
+        text-align: center;
+        padding: 1rem;
+      }}
+    }}
   </style>
 </head>
 <body>
@@ -1037,6 +1124,9 @@ class ViewerGenerator:
       <nav class="top-nav-pages">
         <button class="nav-page-btn active" onclick="navigatePage('explorer', this)">
           <i data-lucide="layout-grid"></i> Explorer
+        </button>
+        <button class="nav-page-btn" onclick="navigatePage('compare', this)">
+          <i data-lucide="columns-2"></i> Compare (2)
         </button>
         <button class="nav-page-btn" onclick="navigatePage('studio', this)">
           <i data-lucide="play-circle"></i> Live Agent Studio
@@ -1348,6 +1438,58 @@ Awaiting target organization number...
             <span class="stat-telemetry-value" style="color:#10b981; font-size:1rem;">94 / 100 (Exceeds Target)</span>
           </div>
         </div>
+      </div>
+    <!-- PAGE 5: Side-by-Side Company Comparison ($500 JBOX UX Feature) -->
+    <div id="page-compare" class="page-view" style="padding:2rem; overflow-y:auto; flex-direction:column; gap:1.5rem;">
+      <div class="studio-hero">
+        <h2 style="font-size:1.35rem; font-weight:700; color:var(--text-white); margin-bottom:0.35rem;">
+          Side-by-Side Corporate Comparison
+        </h2>
+        <p style="font-size:0.8rem; color:var(--text-muted);">
+          Compare financial performance, workforce scale, solvency status, and verified web provenance between any two Norwegian enterprises.
+        </p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1.25rem;">
+          <div>
+            <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:0.35rem;">Company A (Select from dataset)</label>
+            <select id="compare-select-a" class="settings-select" style="width:100%;" onchange="renderComparison()"></select>
+          </div>
+          <div>
+            <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:0.35rem;">Company B (Select from dataset)</label>
+            <select id="compare-select-b" class="settings-select" style="width:100%;" onchange="renderComparison()"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="terminal-table-container">
+        <table class="terminal-table" id="comparison-table">
+          <thead>
+            <tr>
+              <th style="width:25%;">Metric / Attribute</th>
+              <th id="compare-header-a" style="width:37.5%; color:#38bdf8;">Company A</th>
+              <th id="compare-header-b" style="width:37.5%; color:#34d399;">Company B</th>
+            </tr>
+          </thead>
+          <tbody id="comparison-tbody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Source Inspection Modal ($500 JBOX UX Feature) -->
+  <div id="source-modal" class="modal-overlay" onclick="closeSourceModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid var(--border-hairline); padding-bottom:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <i data-lucide="shield-check" style="color:var(--accent-cyan); width:18px; height:18px;"></i>
+          <span style="font-weight:700; color:#fff; font-size:0.95rem;">Audited Evidence Source Inspector</span>
+        </div>
+        <button class="btn-terminal" onclick="closeSourceModal()" style="padding:0.2rem 0.5rem; font-size:0.75rem;">✕ Close</button>
+      </div>
+      <div id="modal-content-body" style="font-size:0.82rem; color:var(--text-secondary); line-height:1.6;">
+        <!-- Populated on click -->
       </div>
     </div>
   </div>
@@ -2117,22 +2259,202 @@ Awaiting target organization number...
     }}
 
     function jumpToClaim(claimId) {{
-      currentActiveTab = 'profile';
-      document.querySelectorAll('.tab-nav-button').forEach(b => b.classList.remove('active'));
-      const profBtn = document.querySelector('.tab-nav-button');
-      if (profBtn) profBtn.classList.add('active');
-      renderTabContent();
+      openSourceModal(claimId);
+    }}
 
-      setTimeout(() => {{
-        const rows = document.querySelectorAll('.terminal-table tr');
-        rows.forEach(r => {{
-          if (r.innerText.includes(claimId)) {{
-            r.classList.add('highlighted');
-            r.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-            setTimeout(() => r.classList.remove('highlighted'), 2500);
+    function openSourceModal(claimId) {{
+      const comp = selectedCompany;
+      if (!comp) return;
+
+      const modal = document.getElementById('source-modal');
+      const body = document.getElementById('modal-content-body');
+
+      // Find claim details across sections
+      let claimVal = 'N/A';
+      let claimKey = claimId;
+      for (const [secName, sec] of Object.entries(comp.sections || {{}})) {{
+        if (sec && sec.claims) {{
+          if (Array.isArray(sec.claims)) {{
+            const found = sec.claims.find(c => c.claim_id === claimId);
+            if (found) {{
+              claimVal = found.title || found.name || found.value || JSON.stringify(found);
+              claimKey = found.role || secName;
+              break;
+            }}
+          }} else if (typeof sec.claims === 'object') {{
+            for (const [k, v] of Object.entries(sec.claims)) {{
+              if (v && v.claim_id === claimId) {{
+                claimVal = typeof v.value === 'object' ? JSON.stringify(v.value) : (v.value ?? 'N/A');
+                claimKey = k;
+                break;
+              }}
+            }}
           }}
-        }});
-      }}, 50);
+        }}
+        if (sec && sec.claim_id === claimId) {{
+          claimVal = sec.official_website || 'Verified URL';
+          claimKey = 'Official Website';
+          break;
+        }}
+      }}
+
+      // Find source that backs this claim
+      const matchingSources = (comp.sources || []).filter(s => (s.claims_backed || []).includes(claimId));
+      const primarySource = matchingSources[0] || (comp.sources || [])[0] || {{
+        url: 'https://data.brreg.no/enhetsregisteret/api/enheter/' + comp.organisation_number,
+        type: 'api',
+        retrieved_date: comp.retrieved_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+        claims_backed: [claimId]
+      }};
+
+      body.innerHTML = `
+        <div style="background:rgba(0,0,0,0.5); padding:1rem; border-radius:6px; border:1px solid var(--border-hairline); margin-bottom:1rem;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.4rem;">
+            <span style="font-family:'JetBrains Mono'; color:#22d3ee; font-weight:700;">Claim ID: ${{claimId}}</span>
+            <span class="tag-badge blue">${{claimKey}}</span>
+          </div>
+          <div style="font-size:0.95rem; font-weight:600; color:#fff; word-break:break-word;">Fact Value: ${{escapeHtml(String(claimVal))}}</div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:0.6rem;">
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
+            <span style="color:var(--text-muted);">Audited Source URL:</span>
+            <a href="${{primarySource.url}}" target="_blank" style="color:var(--accent-cyan); text-decoration:none; word-break:break-all; max-width:70%;">
+              ${{primarySource.url}} <i data-lucide="external-link" style="width:12px; height:12px; display:inline;"></i>
+            </a>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
+            <span style="color:var(--text-muted);">Protocol / Provider:</span>
+            <span style="font-weight:600; color:#fff;">${{primarySource.type === 'api' ? 'Official BRREG Registry API' : 'Direct Verified Domain'}}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border-hairline); padding-bottom:0.4rem;">
+            <span style="color:var(--text-muted);">Retrieval Date:</span>
+            <span style="font-family:'JetBrains Mono'; color:#34d399;">${{primarySource.retrieved_date}}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-muted);">All Claims Backed by this URL:</span>
+            <span style="font-family:'JetBrains Mono'; color:#a1a1aa;">${{(primarySource.claims_backed || []).join(', ') || claimId}}</span>
+          </div>
+        </div>
+      `;
+
+      modal.style.display = 'flex';
+      lucide.createIcons();
+    }}
+
+    function closeSourceModal(e) {{
+      const modal = document.getElementById('source-modal');
+      if (modal) modal.style.display = 'none';
+    }}
+
+    function populateComparisonDropdowns() {{
+      const selA = document.getElementById('compare-select-a');
+      const selB = document.getElementById('compare-select-b');
+      if (!selA || !selB) return;
+
+      selA.innerHTML = '';
+      selB.innerHTML = '';
+      RAW_DATA.forEach((c, idx) => {{
+        const name = c.sections?.legal_identity?.claims?.legal_name?.value || c.organisation_number;
+        const optA = document.createElement('option');
+        optA.value = c.organisation_number;
+        optA.text = `${{name}} (${{c.organisation_number}})`;
+        const optB = optA.cloneNode(true);
+        selA.appendChild(optA);
+        selB.appendChild(optB);
+      }});
+
+      if (RAW_DATA.length > 1) {{
+        selB.selectedIndex = 1;
+      }}
+      renderComparison();
+    }}
+
+    function renderComparison() {{
+      const selA = document.getElementById('compare-select-a');
+      const selB = document.getElementById('compare-select-b');
+      const tbody = document.getElementById('comparison-tbody');
+      const headA = document.getElementById('compare-header-a');
+      const headB = document.getElementById('compare-header-b');
+      if (!selA || !selB || !tbody) return;
+
+      const compA = RAW_DATA.find(c => c.organisation_number === selA.value) || RAW_DATA[0];
+      const compB = RAW_DATA.find(c => c.organisation_number === selB.value) || RAW_DATA[1] || RAW_DATA[0];
+      if (!compA || !compB) return;
+
+      const legA = compA.sections?.legal_identity?.claims || {{}};
+      const legB = compB.sections?.legal_identity?.claims || {{}};
+      const accA = compA.sections?.annual_accounts?.claims || {{}};
+      const accB = compB.sections?.annual_accounts?.claims || {{}};
+      const sigA = compA.derived_signals || {{}};
+      const sigB = compB.derived_signals || {{}};
+
+      const nameA = legA.legal_name?.value || compA.organisation_number;
+      const nameB = legB.legal_name?.value || compB.organisation_number;
+
+      headA.innerText = nameA;
+      headB.innerText = nameB;
+
+      function fmtM(v, curr = 'NOK') {{
+        if (v === undefined || v === null) return 'N/A';
+        const n = Number(v);
+        if (Math.abs(n) >= 1e9) return curr + ' ' + (n / 1e9).toFixed(2) + 'B';
+        if (Math.abs(n) >= 1e6) return curr + ' ' + (n / 1e6).toFixed(1) + 'M';
+        return curr + ' ' + n.toLocaleString();
+      }}
+
+      tbody.innerHTML = `
+        <tr>
+          <td><b>Organization Number</b></td>
+          <td style="font-family:'JetBrains Mono'; color:#38bdf8;">${{compA.organisation_number}}</td>
+          <td style="font-family:'JetBrains Mono'; color:#34d399;">${{compB.organisation_number}}</td>
+        </tr>
+        <tr>
+          <td><b>Legal Form</b></td>
+          <td>${{legA.legal_form?.description || legA.legal_form?.value || 'AS'}}</td>
+          <td>${{legB.legal_form?.description || legB.legal_form?.value || 'AS'}}</td>
+        </tr>
+        <tr>
+          <td><b>Registered City</b></td>
+          <td>${{legA.registered_address?.value?.city || 'N/A'}}</td>
+          <td>${{legB.registered_address?.value?.city || 'N/A'}}</td>
+        </tr>
+        <tr>
+          <td><b>Workforce Scale</b></td>
+          <td><b>${{legA.employee_count?.value ?? 0}}</b> (${{sigA.workforce_scale?.classification || 'Registered'}})</td>
+          <td><b>${{legB.employee_count?.value ?? 0}}</b> (${{sigB.workforce_scale?.classification || 'Registered'}})</td>
+        </tr>
+        <tr>
+          <td><b>Annual Revenue</b></td>
+          <td style="font-family:'JetBrains Mono'; font-weight:700;">${{fmtM(accA.revenue?.value, accA.revenue?.currency)}}</td>
+          <td style="font-family:'JetBrains Mono'; font-weight:700;">${{fmtM(accB.revenue?.value, accB.revenue?.currency)}}</td>
+        </tr>
+        <tr>
+          <td><b>Operating Earnings</b></td>
+          <td style="font-family:'JetBrains Mono';">${{fmtM(accA.operating_result?.value, accA.operating_result?.currency)}}</td>
+          <td style="font-family:'JetBrains Mono';">${{fmtM(accB.operating_result?.value, accB.operating_result?.currency)}}</td>
+        </tr>
+        <tr>
+          <td><b>Balance Sheet Equity</b></td>
+          <td style="font-family:'JetBrains Mono';">${{fmtM(accA.equity?.value, accA.equity?.currency)}}</td>
+          <td style="font-family:'JetBrains Mono';">${{fmtM(accB.equity?.value, accB.equity?.currency)}}</td>
+        </tr>
+        <tr>
+          <td><b>Solvency Risk</b></td>
+          <td><span class="tag-badge ${{sigA.negative_equity?.value ? 'amber' : 'emerald'}}">${{sigA.negative_equity?.description || 'Solvent'}}</span></td>
+          <td><span class="tag-badge ${{sigB.negative_equity?.value ? 'amber' : 'emerald'}}">${{sigB.negative_equity?.description || 'Solvent'}}</span></td>
+        </tr>
+        <tr>
+          <td><b>Official Verified Domain</b></td>
+          <td>${{compA.sections?.website?.official_website ? `<a href="${{compA.sections.website.official_website}}" target="_blank" style="color:var(--accent-cyan);">${{compA.sections.website.official_website}}</a>` : 'Not Available'}}</td>
+          <td>${{compB.sections?.website?.official_website ? `<a href="${{compB.sections.website.official_website}}" target="_blank" style="color:var(--accent-cyan);">${{compB.sections.website.official_website}}</a>` : 'Not Available'}}</td>
+        </tr>
+        <tr>
+          <td><b>Profile Completeness</b></td>
+          <td><span class="tag-badge emerald">${{sigA.completeness_score?.percentage || 'Standard'}}</span></td>
+          <td><span class="tag-badge emerald">${{sigB.completeness_score?.percentage || 'Standard'}}</span></td>
+        </tr>
+      `;
     }}
 
     function copyCurrentJSON() {{
@@ -2501,6 +2823,7 @@ Awaiting target organization number...
     // Boot Terminal Application
     checkBackendConnection();
     loadSavedSettings();
+    populateComparisonDropdowns();
     applyFiltersAndSearch();
   </script>
 </body>

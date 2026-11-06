@@ -87,6 +87,7 @@ class NewsCollector:
         verified_url: Optional[str],
         prefetched_html: Optional[str] = None,
         max_items: int = 5,
+        company_name: str = "",
     ) -> dict[str, Any]:
         """Fetch and extract verified, individually dated news articles.
         Strategy: RSS/Atom feed first (most reliable dates), then HTML <time datetime> fallback.
@@ -101,7 +102,7 @@ class NewsCollector:
             }
 
         # Stage 1: Try RSS/Atom/WP-JSON feed paths
-        rss_articles = await self._try_rss_feeds(session, verified_url, max_items)
+        rss_articles = await self._try_rss_feeds(session, verified_url, max_items, company_name)
         if rss_articles:
             return {
                 "status": "available",
@@ -140,7 +141,7 @@ class NewsCollector:
                 "reason": "Could not retrieve website HTML",
             }
 
-        articles = self._parse_news_from_html(html, verified_url, max_items)
+        articles = self._parse_news_from_html(html, verified_url, max_items, company_name)
         return {
             "status": "available" if articles else "not_available",
             "claims": articles,
@@ -149,7 +150,7 @@ class NewsCollector:
         }
 
     async def _try_rss_feeds(
-        self, session: aiohttp.ClientSession, base_url: str, max_items: int
+        self, session: aiohttp.ClientSession, base_url: str, max_items: int, company_name: str = ""
     ) -> list[dict[str, str]]:
         """Probe common RSS/Atom feed paths. Returns articles on first successful feed found."""
         base_domain = urlparse(base_url).netloc.lower().replace("www.", "")
@@ -194,7 +195,7 @@ class NewsCollector:
                     if not is_feed:
                         continue
 
-                    articles = self._parse_feed(text, base_url, base_domain, max_items)
+                    articles = self._parse_feed(text, base_url, base_domain, max_items, company_name)
                     if articles:
                         logger.debug(
                             f"RSS feed found at {feed_url}: {len(articles)} articles"
@@ -207,12 +208,25 @@ class NewsCollector:
 
         return []
 
+    def _matches_company_name(self, text: str, company_name: str) -> bool:
+        """Check if article text or headline is connected to company (or allow if company name not provided)."""
+        if not company_name:
+            return True
+        clean_name = normalize_norwegian_text(company_name).lower()
+        clean_name = re.sub(r"\b(asa|as|ba|sa|ans|da|holding|group|gruppen)\b", "", clean_name).strip()
+        tokens = [t for t in re.findall(r"[a-zæøå0-9]+", clean_name) if len(t) >= 4]
+        if not tokens:
+            return True
+        lower_text = text.lower()
+        return any(t in lower_text for t in tokens)
+
     def _parse_feed(
         self,
         text: str,
         base_url: str,
         base_domain: str,
         max_items: int,
+        company_name: str = "",
     ) -> list[dict[str, str]]:
         """Parse RSS, Atom, or WordPress JSON feed content into article dicts."""
         articles: list[dict[str, str]] = []
@@ -319,7 +333,7 @@ class NewsCollector:
         return articles
 
     def _parse_news_from_html(
-        self, html: str, base_url: str, max_items: int
+        self, html: str, base_url: str, max_items: int, company_name: str = ""
     ) -> list[dict[str, str]]:
         """Extract individual news articles with strict explicit published date from HTML."""
         soup = BeautifulSoup(html, "html.parser")

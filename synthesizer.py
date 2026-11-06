@@ -107,16 +107,20 @@ class Synthesizer:
 
             if nace_obj and nace_obj.get("value") and len(nace_obj["value"]) > 0:
                 nace = nace_obj["value"][0]
-                s1_parts.append(f"operating within {nace.get('description')} (NACE {nace.get('code')}) {track(nace_obj.get('claim_id'))}")
+                code = (nace.get("code") or "").strip()
+                desc = (nace.get("description") or "").strip()
+                # Skip placeholder or unassigned NACE
+                if code not in ("00.000", "00", "") and desc.lower() not in ("uoppgitt", "ikke oppgitt", "unspecified"):
+                    s1_parts.append(f"operating within {desc} (NACE {code}) {track(nace_obj.get('claim_id'))}")
 
             sentences.append(" ".join(s1_parts) + ".")
 
         # Sentence 2: Workforce and Operations
         emp_obj = legal.get("employee_count")
         if emp_obj:
-            emp_count = emp_obj.get("value", 0)
-            if emp_count > 0:
-                emp_phrase = f"The organization employs approximately {emp_count:,} registered workers {track(emp_obj.get('claim_id'))}"
+            emp_count = emp_obj.get("value")
+            if isinstance(emp_count, (int, float)) and emp_count > 0:
+                emp_phrase = f"The organization employs approximately {int(emp_count):,} registered workers {track(emp_obj.get('claim_id'))}"
                 if workplaces:
                     emp_phrase += f" across {len(workplaces)} active branch workplaces {track(workplaces[0].get('claim_id'))}"
                 sentences.append(emp_phrase + ".")

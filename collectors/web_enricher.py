@@ -172,7 +172,7 @@ class WebEnricher:
                     description = candidate[:500]
                     break
 
-        # 2. Social media profiles
+        # 2. Social media profiles (Prioritize footer & verify company name)
         social_profiles: list[str] = []
         social_domains = [
             "linkedin.com/company",
@@ -183,16 +183,22 @@ class WebEnricher:
             "youtube.com",
             "github.com",
         ]
-        for a in soup.find_all("a", href=True):
-            href = a["href"].strip()
-            for s_dom in social_domains:
-                if s_dom in href:
-                    if href.startswith("http://") or href.startswith("https://"):
-                        clean_href = href.split("?")[0].rstrip("/")
-                        if clean_href not in social_profiles and self._is_company_social_account(
-                            clean_href, company_name
-                        ):
-                            social_profiles.append(clean_href)
+        
+        # Check footer area first if present
+        footer_elements = soup.find_all(["footer", "div", "section"], class_=re.compile(r"footer|bottom|soc", re.I))
+        search_roots = footer_elements + [soup] if footer_elements else [soup]
+
+        for root in search_roots:
+            for a in root.find_all("a", href=True):
+                href = a["href"].strip()
+                for s_dom in social_domains:
+                    if s_dom in href:
+                        if href.startswith("http://") or href.startswith("https://"):
+                            clean_href = href.split("?")[0].rstrip("/")
+                            if clean_href not in social_profiles and self._is_company_social_account(
+                                clean_href, company_name
+                            ):
+                                social_profiles.append(clean_href)
 
         # 3. Contact Email
         contact_email = None

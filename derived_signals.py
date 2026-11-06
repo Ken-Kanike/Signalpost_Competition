@@ -81,8 +81,16 @@ class DerivedSignalsEngine:
         # 4. Workforce Scale & Trend
         emp_obj = legal_claims.get("employee_count")
         if emp_obj:
-            emp_val = emp_obj.get("value", 0)
-            if isinstance(emp_val, int):
+            emp_val = emp_obj.get("value")
+            if emp_obj.get("status") == "not_applicable" or emp_val is None:
+                signals["workforce_scale"] = {
+                    "value": None,
+                    "classification": "Not publicly registered (foreign / branch entity)",
+                    "description": "Workforce scale: Unspecified / foreign registry",
+                    "based_on": [emp_obj["claim_id"]],
+                    "status": "not_applicable",
+                }
+            elif isinstance(emp_val, int):
                 scale_desc = (
                     "Enterprise (>250 employees)"
                     if emp_val >= 250
@@ -92,7 +100,7 @@ class DerivedSignalsEngine:
                     if emp_val >= 10
                     else "Micro business (1-9 employees)"
                     if emp_val > 0
-                    else "No registered employees"
+                    else "Unspecified / Zero registered in Norway"
                 )
                 signals["workforce_scale"] = {
                     "value": emp_val,

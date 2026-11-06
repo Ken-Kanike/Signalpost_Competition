@@ -175,9 +175,9 @@ class Orchestrator:
                     "reason": "No careers page identified on verified website",
                 }
 
-            # Fetch news articles from verified site (utilizes prefetched HTML)
+            # Fetch news articles from verified site (utilizes prefetched HTML, passing company name to ensure attribution)
             news_res = await self.news.fetch_news(
-                session, clean_org, verified_url, prefetched_html, max_items=4
+                session, clean_org, verified_url, prefetched_html, max_items=4, company_name=company_name
             )
         else:
             web_enrichment_res = {
@@ -364,8 +364,12 @@ class Orchestrator:
             out_f.close()
 
         duration = time.monotonic() - start_time
-        avg_claims = (total_claims_count / success_count) if success_count > 0 else 0.0
-        avg_sources = (total_sources_count / success_count) if success_count > 0 else 0.0
+        if success_count > 0:
+            avg_claims = total_claims_count / success_count
+            avg_sources = total_sources_count / success_count
+        else:
+            avg_claims = 0.0
+            avg_sources = 0.0
 
         section_completeness = {
             k: round((v / total_companies) * 100, 1) if total_companies > 0 else 0.0

@@ -189,32 +189,52 @@ class Normalizer:
         # Industry codes (NACE)
         nace = data.get("naeringskode1")
         if nace:
+            nace_code = (nace.get("kode") or "").strip()
+            nace_desc = (nace.get("beskrivelse") or "").strip()
+            # Treat zero/placeholder NACE codes (e.g. 00.000 / Uoppgitt) as unknown
+            if nace_code not in ("00.000", "00", "") and nace_desc.lower() not in ("uoppgitt", "ikke oppgitt", "unspecified"):
+                cid = self._next_claim_id()
+                self._register_source(source_url, cid)
+                claims["industry_codes"] = {
+                    "value": [
+                        {
+                            "code": nace_code,
+                            "description": normalize_norwegian_text(nace_desc),
+                        }
+                    ],
+                    "claim_id": cid,
+                    "source_url": source_url,
+                    "retrieved_date": today,
+                    "status": "available",
+                }
+
+        # Employees
+        emp_count = data.get("antallAnsatte")
+        orgform_code = (data.get("organisasjonsform", {}).get("kode") or "").upper()
+        is_foreign = orgform_code in ("NUF", "FLI", "UTL")
+
+        # For foreign entities or when zero on a foreign entity / unspecified, treat as unknown/not registered
+        if is_foreign and (emp_count is None or emp_count == 0):
             cid = self._next_claim_id()
             self._register_source(source_url, cid)
-            claims["industry_codes"] = {
-                "value": [
-                    {
-                        "code": nace.get("kode"),
-                        "description": normalize_norwegian_text(nace.get("beskrivelse")),
-                    }
-                ],
+            claims["employee_count"] = {
+                "value": None,
+                "claim_id": cid,
+                "source_url": source_url,
+                "retrieved_date": today,
+                "status": "not_applicable",
+                "description": "Employee count not registered in Norway (foreign entity / NUF)",
+            }
+        else:
+            cid = self._next_claim_id()
+            self._register_source(source_url, cid)
+            claims["employee_count"] = {
+                "value": emp_count if emp_count is not None else 0,
                 "claim_id": cid,
                 "source_url": source_url,
                 "retrieved_date": today,
                 "status": "available",
             }
-
-        # Employees
-        emp_count = data.get("antallAnsatte")
-        cid = self._next_claim_id()
-        self._register_source(source_url, cid)
-        claims["employee_count"] = {
-            "value": emp_count if emp_count is not None else 0,
-            "claim_id": cid,
-            "source_url": source_url,
-            "retrieved_date": today,
-            "status": "available",
-        }
 
         # Insolvency / Liquidation flags
         cid = self._next_claim_id()
